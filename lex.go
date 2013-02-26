@@ -1,4 +1,6 @@
 
+// TODO: Backquoted strings.
+
 package main
 
 import (
@@ -15,7 +17,8 @@ const (
     tokenError tokenType = iota
     tokenBareString
     tokenQuotedString
-    tokenInclude
+    tokenPipeInclude
+    tokenRedirInclude
     tokenColon
     tokenAssign
     tokenRecipe
@@ -27,7 +30,8 @@ func (typ tokenType) String() string {
     case tokenError:        return "[Error]"
     case tokenBareString:   return "[BareString]"
     case tokenQuotedString: return "[QuotedString]"
-    case tokenInclude:      return "[Include]"
+    case tokenPipeInclude:  return "[PipeInclude]"
+    case tokenRedirInclude: return "[RedirInclude]"
     case tokenColon:        return "[Colon]"
     case tokenAssign:       return "[Assign]"
     case tokenRecipe:       return "[Recipe]"
@@ -138,6 +142,17 @@ func (l *lexer) emit(typ tokenType) {
 func (l *lexer) accept(valid string) bool {
     if strings.IndexRune(valid, l.peek()) >= 0 {
         l.next()
+        return true
+    }
+    return false
+}
+
+
+// Skip the next rune if it is in the valid string. Return true if it was
+// skipped.
+func (l *lexer) ignore(valid string) bool {
+    if strings.IndexRune(valid, l.peek()) >= 0 {
+        l.skip()
         return true
     }
     return false
@@ -256,9 +271,15 @@ func lexComment (l* lexer) lexerStateFun {
 
 func lexInclude (l* lexer) lexerStateFun {
     l.skip() // '<'
+    var typ tokenType
+    if l.ignore("|") {
+        typ = tokenPipeInclude
+    } else {
+        typ = tokenRedirInclude
+    }
+
     l.skipRun(" \t\n\r")
-    l.acceptUntil("\n\r")
-    l.emit(tokenInclude)
+    l.emit(typ)
     return lexTopLevel
 }
 
