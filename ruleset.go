@@ -5,6 +5,8 @@
 package main
 
 import (
+	"fmt"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -92,10 +94,106 @@ func (rs *ruleSet) push(r rule) {
 	rs.rules = append(rs.rules, r)
 }
 
-// Expand variables found in a string.
-func (rs *ruleSet) expand(t token) string {
-	// TODO: implement this
-	return t.val
+// Expand a word. This includes substituting variables and handling quotes.
+func (rs *ruleSet) expand(input string) string {
+	expanded := make([]byte, 0)
+	var i, j int
+	for i = 0; i < len(input); {
+		j = i + strings.IndexAny(input[i:], "\"'`$\\")
+
+		if j < 0 {
+			expanded = append(expanded, []byte(input[i:])...)
+			break
+		}
+
+		expanded = append(expanded, []byte(input[i:j])...)
+		c, w := utf8.DecodeRuneInString(input[j:])
+		i = j + w
+
+		var off int
+		var out string
+		switch c {
+		case '\\':
+			out, off = rs.expandEscape(input[i:])
+
+		case '"':
+			out, off = rs.expandDoubleQuoted(input[i:])
+
+		case '\'':
+			out, off = rs.expandSingleQuoted(input[i:])
+
+		case '`':
+			out, off = rs.expandBackQuoted(input[i:])
+
+		case '$':
+			// TODO: recursive call: expandSigil
+		}
+
+		expanded = append(expanded, []byte(out)...)
+		i += off
+	}
+
+	return string(expanded)
+}
+
+// Expand following a '\\'
+func (rs *ruleSet) expandEscape(input string) (string, int) {
+	c, w := utf8.DecodeRuneInString(input)
+	return string(c), w
+}
+
+// Expand a double quoted string starting after a '\"'
+func (rs *ruleSet) expandDoubleQuoted(input string) (string, int) {
+	// find the first non-escaped "
+	j := 0
+	for {
+		j = strings.IndexAny(input[j:], "\"\\")
+		if j < 0 {
+			break
+		}
+
+		_, w := utf8.DecodeRuneInString(input[j:])
+		j += w
+
+		c, w := utf8.DecodeRuneInString(input[j:])
+		j += w
+
+		if c == '"' {
+			return rs.expand(input[:j]), (j + w)
+		}
+
+		if c == '\\' {
+			if j+w < len(input) {
+				j += w
+				_, w := utf8.DecodeRuneInString(input[j:])
+				j += w
+			} else {
+				break
+			}
+		}
+	}
+
+	return input, len(input)
+}
+
+// Expand a single quoted string starting after a '\''
+func (rs *ruleSet) expandSingleQuoted(input string) (string, int) {
+	j := strings.Index(input, "'")
+	if j < 0 {
+		return input, len(input)
+	}
+	return input[:j], (j + 1)
+}
+
+// Expand a backtick quoted string, by executing the contents.
+func (rs *ruleSet) expandBackQuoted(input string) (string, int) {
+	j := strings.Index(input, "`")
+	if j < 0 {
+		return input, len(input)
+	}
+
+	output := executeRecipe("sh", nil, input[:j], false, false, true)
+	return output, (j + 1)
 }
 
 func isValidVarName(v string) bool {
@@ -103,7 +201,7 @@ func isValidVarName(v string) bool {
 		c, w := utf8.DecodeRuneInString(v[i:])
 		if i == 0 && !(isalpha(c) || c == '_') {
 			return false
-		} else if !isalnum(c) || c == '_' {
+		} else if !(isalnum(c) || c == '_') {
 			return false
 		}
 		i += w
@@ -119,18 +217,26 @@ func isalnum(c rune) bool {
 	return isalpha(c) || ('0' <= c && c <= '9')
 }
 
+type assignmentError struct {
+	what  string
+	where token
+}
+
 // Parse and execute assignment operation.
-func (rs *ruleSet) executeAssignment(ts []token) {
+func (rs *ruleSet) executeAssignment(ts []token) *assignmentError {
 	assignee := ts[0].val
 	if !isValidVarName(assignee) {
-		// TODO: complain
+		return &assignmentError{
+			fmt.Sprintf("target of assignment is not a valid variable name: \"%s\"", assignee),
+			ts[0]}
 	}
 
 	// expanded variables
 	vals := make([]string, len(ts)-1)
 	for i := 0; i < len(vals); i++ {
-		vals[i] = rs.expand(ts[i+1])
+		vals[i] = rs.expand(ts[i+1].val)
 	}
 
 	rs.vars[assignee] = vals
+	return nil
 }

@@ -32,8 +32,8 @@ func executeRecipe(program string,
 
 	if len(input) > 0 {
 		cmdin, err := cmd.StdinPipe()
-		if err != nil {
-			go func() { cmdin.Write([]byte(input)) }()
+		if err == nil {
+			go func() { cmdin.Write([]byte(input)); cmdin.Close() }()
 		}
 	}
 
@@ -43,6 +43,9 @@ func executeRecipe(program string,
 		var outbytes []byte
 		outbytes, err = cmd.Output()
 		output = string(outbytes)
+		if output[len(output)-1] == '\n' {
+			output = output[:len(output)-1]
+		}
 	} else {
 		err = cmd.Run()
 	}

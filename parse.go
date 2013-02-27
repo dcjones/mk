@@ -1,3 +1,6 @@
+// This is a mkfile parser. It executes assignments and includes as it goes, and
+// collects a set of rules, which are returned as a ruleSet object.
+
 package main
 
 import (
@@ -12,6 +15,7 @@ type parser struct {
 	rules    *ruleSet // current ruleSet
 }
 
+// Pretty errors.
 func (p *parser) parseError(context string, expected string, found token) {
 	fmt.Fprintf(os.Stderr, "%s:%d: syntax error: ", p.name, found.line)
 	fmt.Fprintf(os.Stderr, "while %s, expected %s but found \"%s\".\n",
@@ -19,6 +23,7 @@ func (p *parser) parseError(context string, expected string, found token) {
 	os.Exit(1)
 }
 
+// More basic errors.
 func (p *parser) basicErrorAtToken(what string, found token) {
 	p.basicErrorAtLine(what, found.line)
 }
@@ -29,10 +34,12 @@ func (p *parser) basicErrorAtLine(what string, line int) {
 	os.Exit(1)
 }
 
+// Accept a token for use in the current statement being parsed.
 func (p *parser) push(t token) {
 	p.tokenbuf = append(p.tokenbuf, t)
 }
 
+// Clear all the accepted tokens. Called when a statement is finished.
 func (p *parser) clear() {
 	p.tokenbuf = p.tokenbuf[:0]
 }
@@ -67,9 +74,11 @@ func parseInto(input string, name string, rules *ruleSet) {
 	// rules to finish.
 	state = state(p, token{tokenNewline, "\n", l.line})
 
-	// TODO: Handle the case when state is not top level.
+	// TODO: Error when state != parseTopLevel
 }
 
+// We are at the top level of a mkfile, expecting rules, assignments, or
+// includes.
 func parseTopLevel(p *parser, t token) parserStateFun {
 	switch t.typ {
 	case tokenNewline:
@@ -78,9 +87,7 @@ func parseTopLevel(p *parser, t token) parserStateFun {
 		return parsePipeInclude
 	case tokenRedirInclude:
 		return parseRedirInclude
-	case tokenQuotedString:
-		return parseTargets(p, t)
-	case tokenBareString:
+	case tokenWord:
 		return parseAssignmentOrTarget(p, t)
 	default:
 		p.parseError("parsing mkfile",
@@ -90,6 +97,7 @@ func parseTopLevel(p *parser, t token) parserStateFun {
 	return parseTopLevel
 }
 
+// Consumed a '<|'
 func parsePipeInclude(p *parser, t token) parserStateFun {
 	switch t.typ {
 	case tokenNewline:
@@ -109,8 +117,6 @@ func parsePipeInclude(p *parser, t token) parserStateFun {
 		return parseTopLevel
 
 	// Almost anything goes. Let the shell sort it out.
-	case tokenBareString:
-		fallthrough
 	case tokenPipeInclude:
 		fallthrough
 	case tokenRedirInclude:
@@ -119,7 +125,7 @@ func parsePipeInclude(p *parser, t token) parserStateFun {
 		fallthrough
 	case tokenAssign:
 		fallthrough
-	case tokenQuotedString:
+	case tokenWord:
 		p.tokenbuf = append(p.tokenbuf, t)
 
 	default:
@@ -129,6 +135,7 @@ func parsePipeInclude(p *parser, t token) parserStateFun {
 	return parsePipeInclude
 }
 
+// Consumed a '<'
 func parseRedirInclude(p *parser, t token) parserStateFun {
 	switch t.typ {
 	case tokenNewline:
@@ -136,8 +143,8 @@ func parseRedirInclude(p *parser, t token) parserStateFun {
 		// Open the file, read its context, call parseInto recursively.
 		// Clear out p.tokenbuf
 
-	case tokenBareString:
-	case tokenQuotedString:
+	case tokenWord:
+		// TODO:
 
 	default:
 		// TODO: Complain about unexpected tokens.
@@ -153,16 +160,14 @@ func parseAssignmentOrTarget(p *parser, t token) parserStateFun {
 	return parseEqualsOrTarget
 }
 
-// Consumed one bare string ot the begging of the line.
+// Consumed one bare string ot the beginning of the line.
 func parseEqualsOrTarget(p *parser, t token) parserStateFun {
 	fmt.Println("equals or target")
 	switch t.typ {
 	case tokenAssign:
 		return parseAssignment
 
-	case tokenBareString:
-		fallthrough
-	case tokenQuotedString:
+	case tokenWord:
 		p.push(t)
 		return parseTargets
 
@@ -182,7 +187,10 @@ func parseEqualsOrTarget(p *parser, t token) parserStateFun {
 func parseAssignment(p *parser, t token) parserStateFun {
 	switch t.typ {
 	case tokenNewline:
-		p.rules.executeAssignment(p.tokenbuf)
+		err := p.rules.executeAssignment(p.tokenbuf)
+		if err != nil {
+			p.basicErrorAtToken(err.what, err.where)
+		}
 		p.clear()
 		return parseTopLevel
 
@@ -193,12 +201,10 @@ func parseAssignment(p *parser, t token) parserStateFun {
 	return parseAssignment
 }
 
-// Everything up to : must be a target.
+// Everything up to ':' must be a target.
 func parseTargets(p *parser, t token) parserStateFun {
 	switch t.typ {
-	case tokenBareString:
-		fallthrough
-	case tokenQuotedString:
+	case tokenWord:
 		p.push(t)
 	case tokenColon:
 		p.push(t)
@@ -212,7 +218,7 @@ func parseTargets(p *parser, t token) parserStateFun {
 	return parseTargets
 }
 
-// Consumed one or more strings followed by a :.
+// Consumed one or more strings followed by a first ':'.
 func parseAttributesOrPrereqs(p *parser, t token) parserStateFun {
 	fmt.Println("attributes or prereqs")
 	switch t.typ {
@@ -221,9 +227,7 @@ func parseAttributesOrPrereqs(p *parser, t token) parserStateFun {
 	case tokenColon:
 		p.push(t)
 		return parsePrereqs
-	case tokenBareString:
-		fallthrough
-	case tokenQuotedString:
+	case tokenWord:
 		p.push(t)
 	default:
 		p.parseError("reading a rule's attributes or prerequisites",
@@ -233,14 +237,13 @@ func parseAttributesOrPrereqs(p *parser, t token) parserStateFun {
 	return parseAttributesOrPrereqs
 }
 
+// Targets and attributes and the second ':' have been consumed.
 func parsePrereqs(p *parser, t token) parserStateFun {
 	fmt.Println("prereqs")
 	switch t.typ {
 	case tokenNewline:
 		return parseRecipe
-	case tokenBareString:
-		fallthrough
-	case tokenQuotedString:
+	case tokenWord:
 		p.push(t)
 
 	default:
@@ -251,6 +254,7 @@ func parsePrereqs(p *parser, t token) parserStateFun {
 	return parsePrereqs
 }
 
+// An entire rule has been consumed.
 func parseRecipe(p *parser, t token) parserStateFun {
 	fmt.Println("recipe")
 
@@ -279,7 +283,7 @@ func parseRecipe(p *parser, t token) parserStateFun {
 		}
 		err := r.parseAttribs(attribs)
 		if err != nil {
-			msg := fmt.Sprintf("while reading a rule's attributes expected an attribute but found '%c'.", err.found)
+			msg := fmt.Sprintf("while reading a rule's attributes expected an attribute but found \"%c\".", err.found)
 			p.basicErrorAtToken(msg, p.tokenbuf[i+1])
 		}
 	} else {

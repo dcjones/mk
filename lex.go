@@ -15,8 +15,7 @@ const eof rune = '\000'
 const (
 	tokenError tokenType = iota
 	tokenNewline
-	tokenBareString
-	tokenQuotedString
+	tokenWord
 	tokenPipeInclude
 	tokenRedirInclude
 	tokenColon
@@ -30,10 +29,8 @@ func (typ tokenType) String() string {
 		return "[Error]"
 	case tokenNewline:
 		return "[Newline]"
-	case tokenBareString:
-		return "[BareString]"
-	case tokenQuotedString:
-		return "[QuotedString]"
+	case tokenWord:
+		return "[Word]"
 	case tokenPipeInclude:
 		return "[PipeInclude]"
 	case tokenRedirInclude:
@@ -209,7 +206,6 @@ func (l *lexer) run() {
 // A way of determining if the current line might be a recipe.
 
 func lexTopLevel(l *lexer) lexerStateFun {
-
 	for {
 		l.skipRun(" \t\r")
 		// emit a newline token if we are ending a non-empty line.
@@ -219,7 +215,7 @@ func lexTopLevel(l *lexer) lexerStateFun {
 		}
 		l.skipRun(" \t\r\n")
 
-		if l.peek() == '\'' && l.peekN(1) == '\n' {
+		if l.peek() == '\\' && l.peekN(1) == '\n' {
 			l.next()
 			l.next()
 			l.indented = false
@@ -240,17 +236,21 @@ func lexTopLevel(l *lexer) lexerStateFun {
 		return lexComment
 	case '<':
 		return lexInclude
-	case '"':
-		return lexDoubleQuote
-	case '\'':
-		return lexSingleQuote
 	case ':':
 		return lexColon
 	case '=':
 		return lexAssign
+	case '"':
+		return lexDoubleQuotedWord
+	case '\'':
+		return lexSingleQuotedWord
+	case '`':
+		return lexBackQuotedWord
 	}
 
-	return lexBareString
+	// TODO: No! The lexer can get stuck in a loop this way.
+	// Check if the next charar is a valid bare string chacter. If not, error.
+	return lexBareWord
 }
 
 func lexColon(l *lexer) lexerStateFun {
@@ -281,25 +281,30 @@ func lexInclude(l *lexer) lexerStateFun {
 	return lexTopLevel
 }
 
-func lexDoubleQuote(l *lexer) lexerStateFun {
-	l.skip() // '"'
+func lexDoubleQuotedWord(l *lexer) lexerStateFun {
+	l.next() // '"'
 	for l.peek() != '"' {
 		l.acceptUntil("\\\"")
 		if l.accept("\\") {
 			l.accept("\"")
 		}
 	}
-	l.emit(tokenQuotedString)
-	l.skip() // skip '"'
-	return lexTopLevel
+	l.next() // '"'
+	return lexBareWord
 }
 
-func lexSingleQuote(l *lexer) lexerStateFun {
-	l.skip() // '\''
+func lexBackQuotedWord(l *lexer) lexerStateFun {
+	l.next() // '`'
+	l.acceptUntil("`")
+	l.next() // '`'
+	return lexBareWord
+}
+
+func lexSingleQuotedWord(l *lexer) lexerStateFun {
+	l.next() // '\''
 	l.acceptUntil("'")
-	l.emit(tokenQuotedString)
-	l.skip() // '\''
-	return lexTopLevel
+	l.next() // '\''
+	return lexBareWord
 }
 
 func lexRecipe(l *lexer) lexerStateFun {
@@ -316,10 +321,19 @@ func lexRecipe(l *lexer) lexerStateFun {
 	return lexTopLevel
 }
 
-func lexBareString(l *lexer) lexerStateFun {
-	// TODO: allow escaping spaces and tabs?
-	// TODO: allow adjacent quoted string, e.g.: foo"bar"baz?
+func lexBareWord(l *lexer) lexerStateFun {
 	l.acceptUntil(" \t\n\r\\=:#'\"")
-	l.emit(tokenBareString)
+	if l.peek() == '"' {
+		return lexDoubleQuotedWord
+	} else if l.peek() == '\'' {
+		return lexSingleQuotedWord
+	} else if l.peek() == '`' {
+		return lexBackQuotedWord
+	}
+
+	if l.start < l.pos {
+		l.emit(tokenWord)
+	}
+
 	return lexTopLevel
 }
