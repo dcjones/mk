@@ -272,10 +272,11 @@ func parseRecipe(p *parser, t token) parserStateFun {
 	// targets
 	r.targets = make([]string, i)
 	for k := 0; k < i; k++ {
-		r.targets[k] = p.tokenbuf[k].val
+		r.targets[k] = p.rules.expand(p.tokenbuf[k].val, true)
 	}
 
 	// rule has attributes
+    // TODO: should we be expanding the attribute strings?
 	if j < len(p.tokenbuf) {
 		attribs := make([]string, j-i-1)
 		for k := i + 1; k < j; k++ {
@@ -293,11 +294,11 @@ func parseRecipe(p *parser, t token) parserStateFun {
 	// prereqs
 	r.prereqs = make([]string, len(p.tokenbuf)-j-1)
 	for k := j + 1; k < len(p.tokenbuf); k++ {
-		r.prereqs[k-j-1] = p.tokenbuf[k].val
+		r.prereqs[k-j-1] = p.rules.expand(p.tokenbuf[k].val, true)
 	}
 
 	if t.typ == tokenRecipe {
-		r.recipe = t.val
+		r.recipe = p.rules.expand(t.val, false)
 	}
 
 	p.rules.push(r)

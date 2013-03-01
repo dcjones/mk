@@ -1,13 +1,13 @@
 package main
 
 import (
-//"fmt"
-//"io/ioutil"
-//"os"
+"fmt"
+"io/ioutil"
+"os"
 )
 
 func main() {
-	//input, _ := ioutil.ReadAll(os.Stdin)
+    input, _ := ioutil.ReadAll(os.Stdin)
 
 	// TEST LEXING
 	//_, tokens := lex(string(input))
@@ -16,10 +16,10 @@ func main() {
 	//}
 
 	// TEST PARSING
-	//rs := parse(string(input), "<stdin>")
-	//fmt.Println(rs)
+    rs := parse(string(input), "<stdin>")
+    fmt.Println(rs)
 
 	// TEST STRING EXPANSION
-	rules := &ruleSet{make(map[string][]string), make([]rule, 0)}
-	println(rules.expand("\"This is a quote: \\\"\""))
+	//rules := &ruleSet{make(map[string][]string), make([]rule, 0)}
+	//println(rules.expand("\"This is a quote: \\\"\""))
 }
