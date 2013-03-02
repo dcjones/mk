@@ -6,6 +6,8 @@ package main
 import (
 	"fmt"
 	"os"
+    "regexp"
+    "strings"
 )
 
 type parser struct {
@@ -50,7 +52,9 @@ type parserStateFun func(*parser, token) parserStateFun
 
 // Parse a mkfile, returning a new ruleSet.
 func parse(input string, name string) *ruleSet {
-	rules := &ruleSet{make(map[string][]string), make([]rule, 0)}
+	rules := &ruleSet{make(map[string][]string),
+                      make([]rule, 0),
+                      make(map[string][]int)}
 	parseInto(input, name, rules)
 	return rules
 }
@@ -155,14 +159,12 @@ func parseRedirInclude(p *parser, t token) parserStateFun {
 
 // Encountered a bare string at the beginning of the line.
 func parseAssignmentOrTarget(p *parser, t token) parserStateFun {
-	fmt.Println("assignment or target")
 	p.push(t)
 	return parseEqualsOrTarget
 }
 
 // Consumed one bare string ot the beginning of the line.
 func parseEqualsOrTarget(p *parser, t token) parserStateFun {
-	fmt.Println("equals or target")
 	switch t.typ {
 	case tokenAssign:
 		return parseAssignment
@@ -220,7 +222,6 @@ func parseTargets(p *parser, t token) parserStateFun {
 
 // Consumed one or more strings followed by a first ':'.
 func parseAttributesOrPrereqs(p *parser, t token) parserStateFun {
-	fmt.Println("attributes or prereqs")
 	switch t.typ {
 	case tokenNewline:
 		return parseRecipe
@@ -239,7 +240,6 @@ func parseAttributesOrPrereqs(p *parser, t token) parserStateFun {
 
 // Targets and attributes and the second ':' have been consumed.
 func parsePrereqs(p *parser, t token) parserStateFun {
-	fmt.Println("prereqs")
 	switch t.typ {
 	case tokenNewline:
 		return parseRecipe
@@ -256,8 +256,6 @@ func parsePrereqs(p *parser, t token) parserStateFun {
 
 // An entire rule has been consumed.
 func parseRecipe(p *parser, t token) parserStateFun {
-	fmt.Println("recipe")
-
 	// Assemble the rule!
 	r := rule{}
 
@@ -269,39 +267,73 @@ func parseRecipe(p *parser, t token) parserStateFun {
 	for ; j < len(p.tokenbuf) && p.tokenbuf[j].typ != tokenColon; j++ {
 	}
 
-	// targets
-	r.targets = make([]string, i)
-	for k := 0; k < i; k++ {
-		r.targets[k] = p.rules.expand(p.tokenbuf[k].val, true)
-	}
-
 	// rule has attributes
-    // TODO: should we be expanding the attribute strings?
 	if j < len(p.tokenbuf) {
 		attribs := make([]string, j-i-1)
 		for k := i + 1; k < j; k++ {
-			attribs[k-i-1] = p.tokenbuf[k].val
+			attribs[k-i-1] = expand(p.tokenbuf[k].val, p.rules.vars, true)
 		}
 		err := r.parseAttribs(attribs)
 		if err != nil {
 			msg := fmt.Sprintf("while reading a rule's attributes expected an attribute but found \"%c\".", err.found)
 			p.basicErrorAtToken(msg, p.tokenbuf[i+1])
 		}
+
+        if r.attributes.regex {
+            r.ismeta = true
+        }
 	} else {
 		j = i
+	}
+
+	// targets
+	r.targets = make([]pattern, i)
+	for k := 0; k < i; k++ {
+        targetstr := expand(p.tokenbuf[k].val, p.rules.vars, true)
+        r.targets[k].spat = targetstr
+
+        if r.attributes.regex {
+            rpat, err := regexp.Compile(targetstr)
+            if err != nil {
+                msg := fmt.Sprintf("invalid regular expression: %q", err)
+                p.basicErrorAtToken(msg, p.tokenbuf[k])
+            }
+            r.targets[k].rpat = rpat
+        } else {
+            idx := strings.IndexRune(targetstr, '%')
+            if idx >= 0 {
+                var left, right string
+                if idx > 0 {
+                    left = regexp.QuoteMeta(targetstr[:idx])
+                }
+                if idx < len(targetstr) - 1 {
+                    right = regexp.QuoteMeta(targetstr[idx+1:])
+                }
+
+                patstr := fmt.Sprintf("^%s(.*)%s$", left, right)
+                rpat, err := regexp.Compile(patstr)
+                if err != nil {
+                    msg := fmt.Sprintf("error compiling suffix rule. This is a bug.", err)
+                    p.basicErrorAtToken(msg, p.tokenbuf[k])
+                }
+                r.targets[k].rpat = rpat
+                r.targets[k].issuffix = true
+                r.ismeta = true
+            }
+        }
 	}
 
 	// prereqs
 	r.prereqs = make([]string, len(p.tokenbuf)-j-1)
 	for k := j + 1; k < len(p.tokenbuf); k++ {
-		r.prereqs[k-j-1] = p.rules.expand(p.tokenbuf[k].val, true)
+        r.prereqs[k-j-1] = expand(p.tokenbuf[k].val, p.rules.vars, true)
 	}
 
 	if t.typ == tokenRecipe {
-		r.recipe = p.rules.expand(t.val, false)
+		r.recipe = t.val
 	}
 
-	p.rules.push(r)
+	p.rules.add(r)
 	p.clear()
 
 	// the current token doesn't belong to this rule

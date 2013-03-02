@@ -6,8 +6,8 @@ package main
 
 import (
 	"fmt"
-	"strings"
 	"unicode/utf8"
+    "regexp"
 )
 
 type attribSet struct {
@@ -26,14 +26,50 @@ type attribError struct {
 	found rune
 }
 
+
+// target and rereq patterns
+type pattern struct {
+    issuffix bool       // is a suffix '%' rule, so we should define $stem.
+    spat string         // simple string pattern
+    rpat *regexp.Regexp // non-nil if this is a regexp pattern
+}
+
+
+// Match a pattern, returning an array of submatches, or nil if it doesn'm
+// match.
+func (p *pattern) match(target string) []string {
+    if p.rpat != nil {
+        return p.rpat.FindStringSubmatch(target)
+    }
+
+    if target == p.spat {
+        return make([]string, 0)
+    }
+
+    return nil
+}
+
+
+// A single rule.
 type rule struct {
-	targets    []string  // non-empty array of targets
+	targets    []pattern // non-empty array of targets
 	attributes attribSet // rule attributes
 	prereqs    []string  // possibly empty prerequesites
 	shell      []string  // command used to execute the recipe
 	recipe     string    // recipe source
 	command    []string  // command attribute
+    ismeta     bool      // is this a meta rule
 }
+
+
+// A set of rules.
+type ruleSet struct {
+	vars  map[string][]string
+	rules []rule
+    // map a target to an array of indexes into rules
+    targetrules map[string][]int
+}
+
 
 // Read attributes for an array of strings, updating the rule.
 func (r *rule) parseAttribs(inputs []string) *attribError {
@@ -84,164 +120,18 @@ func (r *rule) parseAttribs(inputs []string) *attribError {
 	return nil
 }
 
-type ruleSet struct {
-	vars  map[string][]string
-	rules []rule
-}
-
 // Add a rule to the rule set.
-func (rs *ruleSet) push(r rule) {
+func (rs *ruleSet) add(r rule) {
 	rs.rules = append(rs.rules, r)
-}
-
-// Expand a word. This includes substituting variables and handling quotes.
-func (rs *ruleSet) expand(input string, expandBackticks bool) string {
-	expanded := make([]byte, 0)
-	var i, j int
-	for i = 0; i < len(input); {
-		j = i + strings.IndexAny(input[i:], "\"'`$\\")
-
-		if j < 0 {
-			expanded = append(expanded, []byte(input[i:])...)
-			break
-		}
-
-		expanded = append(expanded, []byte(input[i:j])...)
-		c, w := utf8.DecodeRuneInString(input[j:])
-		i = j + w
-
-		var off int
-		var out string
-		switch c {
-		case '\\':
-			out, off = rs.expandEscape(input[i:])
-
-		case '"':
-			out, off = rs.expandDoubleQuoted(input[i:], expandBackticks)
-
-		case '\'':
-			out, off = rs.expandSingleQuoted(input[i:])
-
-		case '`':
-            if expandBackticks {
-                out, off = rs.expandBackQuoted(input[i:])
-            } else {
-                out = input
-                off = len(input)
-            }
-
-		case '$':
-            out, off = rs.expandSigil(input[i:])
-		}
-
-		expanded = append(expanded, []byte(out)...)
-		i += off
-	}
-
-	return string(expanded)
-}
-
-// Expand following a '\\'
-func (rs *ruleSet) expandEscape(input string) (string, int) {
-	c, w := utf8.DecodeRuneInString(input)
-	return string(c), w
-}
-
-// Expand a double quoted string starting after a '\"'
-func (rs *ruleSet) expandDoubleQuoted(input string, expandBackticks bool) (string, int) {
-	// find the first non-escaped "
-	j := 0
-	for {
-		j = strings.IndexAny(input[j:], "\"\\")
-		if j < 0 {
-			break
-		}
-
-		_, w := utf8.DecodeRuneInString(input[j:])
-		j += w
-
-		c, w := utf8.DecodeRuneInString(input[j:])
-		j += w
-
-		if c == '"' {
-			return rs.expand(input[:j], expandBackticks), (j + w)
-		}
-
-		if c == '\\' {
-			if j+w < len(input) {
-				j += w
-				_, w := utf8.DecodeRuneInString(input[j:])
-				j += w
-			} else {
-				break
-			}
-		}
-	}
-
-	return input, len(input)
-}
-
-// Expand a single quoted string starting after a '\''
-func (rs *ruleSet) expandSingleQuoted(input string) (string, int) {
-	j := strings.Index(input, "'")
-	if j < 0 {
-		return input, len(input)
-	}
-	return input[:j], (j + 1)
-}
-
-// Expand something starting with at '$'.
-func (rs *ruleSet) expandSigil(input string) (string, int) {
-    c, w := utf8.DecodeRuneInString(input)
-    var offset int
-    var varname string
-    if c == '{' {
-        j := strings.Index(input[w:], "}")
-        if j < 0 {
-            return input, len(input)
-        }
-
-        varname = input[w:j]
-        offset = j + 1
-    } else {
-        // try to match a variable name
-        i := w
-        j := i
-        for j < len(input) {
-            c, w = utf8.DecodeRuneInString(input)
-            if !(isalpha(c) || c == '_' || (j > i && isdigit(c))) {
-                break
-            }
-            j += w
-        }
-
-        if j > i {
-            varname = input[i:j]
-        } else {
-            return input, len(input)
+    k := len(rs.rules) - 1
+    for i := range r.targets {
+        if r.targets[i].rpat == nil {
+            rs.targetrules[r.targets[i].spat] =
+                append(rs.targetrules[r.targets[i].spat], k)
         }
     }
-
-    if isValidVarName(varname) {
-        varvals, ok := rs.vars[varname]
-        if ok {
-            return strings.Join(varvals, " "), offset
-        }
-    }
-
-    return input, len(input)
 }
 
-// Expand a backtick quoted string, by executing the contents.
-func (rs *ruleSet) expandBackQuoted(input string) (string, int) {
-	j := strings.Index(input, "`")
-	if j < 0 {
-		return input, len(input)
-	}
-
-	output := executeRecipe("sh", nil, input[:j], false, false, true)
-	return output, (j + 1)
-}
 
 func isValidVarName(v string) bool {
 	for i := 0; i < len(v); {
@@ -286,7 +176,7 @@ func (rs *ruleSet) executeAssignment(ts []token) *assignmentError {
 	// expanded variables
 	vals := make([]string, len(ts)-1)
 	for i := 0; i < len(vals); i++ {
-		vals[i] = rs.expand(ts[i+1].val, true)
+		vals[i] = expand(ts[i+1].val, rs.vars, true)
 	}
 
 	rs.vars[assignee] = vals
