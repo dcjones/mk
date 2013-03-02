@@ -173,11 +173,13 @@ func (rs *ruleSet) executeAssignment(ts []token) *assignmentError {
 			ts[0]}
 	}
 
+
 	// expanded variables
-	vals := make([]string, len(ts)-1)
-	for i := 0; i < len(vals); i++ {
-		vals[i] = expand(ts[i+1].val, rs.vars, true)
+	vals := make([]string, 0)
+	for i := 1; i < len(ts); i++ {
+        vals = append(vals, expand(ts[i].val, rs.vars, true)...)
 	}
+
 
 	rs.vars[assignee] = vals
 	return nil

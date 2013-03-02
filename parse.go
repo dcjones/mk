@@ -269,9 +269,10 @@ func parseRecipe(p *parser, t token) parserStateFun {
 
 	// rule has attributes
 	if j < len(p.tokenbuf) {
-		attribs := make([]string, j-i-1)
+		attribs := make([]string, 0)
 		for k := i + 1; k < j; k++ {
-			attribs[k-i-1] = expand(p.tokenbuf[k].val, p.rules.vars, true)
+            exparts := expand(p.tokenbuf[k].val, p.rules.vars, true)
+            attribs = append(attribs, exparts...)
 		}
 		err := r.parseAttribs(attribs)
 		if err != nil {
@@ -287,46 +288,50 @@ func parseRecipe(p *parser, t token) parserStateFun {
 	}
 
 	// targets
-	r.targets = make([]pattern, i)
+	r.targets = make([]pattern, 0)
 	for k := 0; k < i; k++ {
-        targetstr := expand(p.tokenbuf[k].val, p.rules.vars, true)
-        r.targets[k].spat = targetstr
+        exparts := expand(p.tokenbuf[k].val, p.rules.vars, true)
+        for i := range exparts {
+            targetstr := exparts[i]
+            r.targets = append(r.targets, pattern{spat: targetstr})
 
-        if r.attributes.regex {
-            rpat, err := regexp.Compile(targetstr)
-            if err != nil {
-                msg := fmt.Sprintf("invalid regular expression: %q", err)
-                p.basicErrorAtToken(msg, p.tokenbuf[k])
-            }
-            r.targets[k].rpat = rpat
-        } else {
-            idx := strings.IndexRune(targetstr, '%')
-            if idx >= 0 {
-                var left, right string
-                if idx > 0 {
-                    left = regexp.QuoteMeta(targetstr[:idx])
-                }
-                if idx < len(targetstr) - 1 {
-                    right = regexp.QuoteMeta(targetstr[idx+1:])
-                }
-
-                patstr := fmt.Sprintf("^%s(.*)%s$", left, right)
-                rpat, err := regexp.Compile(patstr)
+            if r.attributes.regex {
+                rpat, err := regexp.Compile(targetstr)
                 if err != nil {
-                    msg := fmt.Sprintf("error compiling suffix rule. This is a bug.", err)
+                    msg := fmt.Sprintf("invalid regular expression: %q", err)
                     p.basicErrorAtToken(msg, p.tokenbuf[k])
                 }
-                r.targets[k].rpat = rpat
-                r.targets[k].issuffix = true
-                r.ismeta = true
+                r.targets[len(r.targets)-1].rpat = rpat
+            } else {
+                idx := strings.IndexRune(targetstr, '%')
+                if idx >= 0 {
+                    var left, right string
+                    if idx > 0 {
+                        left = regexp.QuoteMeta(targetstr[:idx])
+                    }
+                    if idx < len(targetstr) - 1 {
+                        right = regexp.QuoteMeta(targetstr[idx+1:])
+                    }
+
+                    patstr := fmt.Sprintf("^%s(.*)%s$", left, right)
+                    rpat, err := regexp.Compile(patstr)
+                    if err != nil {
+                        msg := fmt.Sprintf("error compiling suffix rule. This is a bug.", err)
+                        p.basicErrorAtToken(msg, p.tokenbuf[k])
+                    }
+                    r.targets[len(r.targets)-1].rpat = rpat
+                    r.targets[len(r.targets)-1].issuffix = true
+                    r.ismeta = true
+                }
             }
         }
 	}
 
 	// prereqs
-	r.prereqs = make([]string, len(p.tokenbuf)-j-1)
+	r.prereqs = make([]string, 0)
 	for k := j + 1; k < len(p.tokenbuf); k++ {
-        r.prereqs[k-j-1] = expand(p.tokenbuf[k].val, p.rules.vars, true)
+        exparts := expand(p.tokenbuf[k].val, p.rules.vars, true)
+        r.prereqs = append(r.prereqs, exparts...)
 	}
 
 	if t.typ == tokenRecipe {
