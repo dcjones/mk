@@ -110,7 +110,7 @@ func applyrules(rs *ruleSet, g *graph, target string, rulecnt []int) *node {
 	if ok {
 		for ki := range ks {
 			k := ks[ki]
-			if rulecnt[k] > max_rule_cnt {
+			if rulecnt[k] > maxRuleCnt {
 				continue
 			}
 
@@ -140,7 +140,7 @@ func applyrules(rs *ruleSet, g *graph, target string, rulecnt []int) *node {
 
 	// find applicable metarules
 	for k := range rs.rules {
-		if rulecnt[k] > max_rule_cnt {
+		if rulecnt[k] > maxRuleCnt {
 			continue
 		}
 

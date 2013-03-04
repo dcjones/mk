@@ -14,11 +14,36 @@ var nocolor bool = false
 // True if we are no actualyl executing any recipes or updating any timestamps.
 var dryrun bool = false
 
+// True if we are ignoring timestamps and rebuilding everything.
+var rebuildall bool = false
+
 // Lock on standard out, messages don't get interleaved too much.
 var mkMsgMutex sync.Mutex
 
 // The maximum number of times an rule may be applied.
-const max_rule_cnt = 3
+const maxRuleCnt = 3
+
+// Limit the number of recipes executed simultaneously.
+var subprocsAllowed int
+var subprocsAllowedCond *sync.Cond = sync.NewCond(&sync.Mutex{})
+
+// Wait until there is an available subprocess slot.
+func reserveSubproc() {
+	subprocsAllowedCond.L.Lock()
+	for subprocsAllowed == 0 {
+		subprocsAllowedCond.Wait()
+	}
+	subprocsAllowed--
+	subprocsAllowedCond.L.Unlock()
+}
+
+// Free up another subprocess to run.
+func finishSubproc() {
+	subprocsAllowedCond.L.Lock()
+	subprocsAllowed++
+	subprocsAllowedCond.Signal()
+	subprocsAllowedCond.L.Unlock()
+}
 
 // Ansi color codes.
 const (
@@ -33,7 +58,7 @@ const (
 
 func mk(rs *ruleSet, target string, dryrun bool) {
 	g := buildgraph(rs, target)
-	if g.root.exists {
+	if g.root.exists && !rebuildall {
 		return
 	}
 	mkNode(g, g.root)
@@ -43,10 +68,6 @@ func mk(rs *ruleSet, target string, dryrun bool) {
 //
 // This selects an appropriate rule (edge) and builds all prerequisites
 // concurrently.
-//
-// TODO: control the number of concurrent rules being built. This would involve
-// some sort of global counter protected by a mutex, so we wait our turn to
-// execute our rule.
 //
 func mkNode(g *graph, u *node) {
 	// try to claim on this node
@@ -105,7 +126,7 @@ func mkNode(g *graph, u *node) {
 	for i := range prereqs {
 		prereqs[i].mutex.Lock()
 		// needs to be built?
-		if !prereqs[i].exists || e.r.attributes.virtual || (u.exists && u.t.Before(prereqs[i].t)) {
+		if !prereqs[i].exists || e.r.attributes.virtual || rebuildall || (u.exists && u.t.Before(prereqs[i].t)) {
 			switch prereqs[i].status {
 			case nodeStatusReady:
 				go mkNode(g, prereqs[i])
@@ -135,9 +156,11 @@ func mkNode(g *graph, u *node) {
 
 	// execute the recipe, unless the prereqs failed
 	if finalstatus != nodeStatusFailed && len(e.r.recipe) > 0 {
+		reserveSubproc()
 		if !dorecipe(u.name, u, e) {
 			finalstatus = nodeStatusFailed
 		}
+		finishSubproc()
 	}
 
 	//mkPrintSuccess("finished mking " + u.name)
@@ -193,6 +216,8 @@ func main() {
 	var mkfilepath string
 	flag.StringVar(&mkfilepath, "f", "mkfile", "use the given file as mkfile")
 	flag.BoolVar(&dryrun, "n", false, "print commands without actually executing")
+	flag.BoolVar(&rebuildall, "a", false, "force building of all dependencies")
+	flag.IntVar(&subprocsAllowed, "p", 64, "maximum number of jobs to execute in parallel")
 	flag.Parse()
 
 	mkfile, err := os.Open(mkfilepath)
