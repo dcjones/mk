@@ -72,7 +72,7 @@ func mkNode(g *graph, u *node) {
 
 	// there's no fucking rules, dude
 	if len(u.prereqs) == 0 {
-		if !u.r.attributes.virtual && !u.exists {
+		if !(u.r != nil && u.r.attributes.virtual) && !u.exists {
 			wd, _ := os.Getwd()
 			mkError(fmt.Sprintf("don't know how to make %s in %s", u.name, wd))
 		}
@@ -134,8 +134,7 @@ func mkNode(g *graph, u *node) {
 	}
 
 	// execute the recipe, unless the prereqs failed
-	if finalstatus != nodeStatusFailed {
-		//mkPrintMessage("mking " + u.name)
+	if finalstatus != nodeStatusFailed && len(e.r.recipe) > 0 {
 		if !dorecipe(u.name, u, e) {
 			finalstatus = nodeStatusFailed
 		}
