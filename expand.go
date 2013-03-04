@@ -142,7 +142,7 @@ func expandSigil(input string, vars map[string][]string) ([]string, int) {
         i := 0
         j := i
         for j < len(input) {
-            c, w = utf8.DecodeRuneInString(input)
+            c, w = utf8.DecodeRuneInString(input[j:])
             if !(isalpha(c) || c == '_' || (j > i && isdigit(c))) {
                 break
             }
@@ -196,6 +196,39 @@ func expandSigils(input string, vars map[string][]string) []string {
 }
 
 
+// Find and expand all sigils in a recipe, producing a flat string.
+func expandRecipeSigils(input string, vars map[string][]string) string {
+    expanded := ""
+    for i := 0; i < len(input); {
+        j := strings.IndexAny(input[i:], "$\\")
+        if j < 0 {
+            expanded += input[i:]
+            break
+        }
+
+        expanded += input[i:j]
+        i = j
+        c, w := utf8.DecodeRuneInString(input[i:])
+        if c == '$' {
+            i += w
+            ex, k := expandSigil(input[i:], vars)
+            expanded += strings.Join(ex, " ")
+            i += k
+        } else if c == '\\' {
+            i += w
+            c, w := utf8.DecodeRuneInString(input[i:])
+            if c == '$' {
+                expanded += "$"
+            } else {
+                expanded += "\\" + string(c)
+            }
+            i += w
+        }
+    }
+
+    return expanded
+}
+
 
 // Expand all unescaped '%' characters.
 func expandSuffixes(input string, stem string) string {
@@ -236,7 +269,8 @@ func expandBackQuoted(input string, vars map[string][]string) (string, int) {
 		return input, len(input)
 	}
 
-	output := executeRecipe("sh", nil, input[:j], false, false, true)
+    // TODO: handle errors
+	output, _ := subprocess("sh", nil, input[:j], false, false, true)
 	return output, (j + 1)
 }
 

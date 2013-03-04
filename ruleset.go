@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"unicode/utf8"
     "regexp"
+    "sync"
 )
 
 type attribSet struct {
@@ -52,13 +53,14 @@ func (p *pattern) match(target string) []string {
 
 // A single rule.
 type rule struct {
-	targets    []pattern // non-empty array of targets
-	attributes attribSet // rule attributes
-	prereqs    []string  // possibly empty prerequesites
-	shell      []string  // command used to execute the recipe
-	recipe     string    // recipe source
-	command    []string  // command attribute
-    ismeta     bool      // is this a meta rule
+	targets    []pattern  // non-empty array of targets
+	attributes attribSet  // rule attributes
+	prereqs    []string   // possibly empty prerequesites
+	shell      []string   // command used to execute the recipe
+	recipe     string     // recipe source
+	command    []string   // command attribute
+    ismeta     bool       // is this a meta rule
+    mutex      sync.Mutex // prevent the rule from being executed multiple times
 }
 
 
@@ -122,7 +124,7 @@ func (r *rule) parseAttribs(inputs []string) *attribError {
 
 // Add a rule to the rule set.
 func (rs *ruleSet) add(r rule) {
-	rs.rules = append(rs.rules, r)
+    rs.rules = append(rs.rules, r)
     k := len(rs.rules) - 1
     for i := range r.targets {
         if r.targets[i].rpat == nil {
