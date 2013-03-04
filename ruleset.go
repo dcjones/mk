@@ -6,9 +6,9 @@ package main
 
 import (
 	"fmt"
+	"regexp"
+	"sync"
 	"unicode/utf8"
-    "regexp"
-    "sync"
 )
 
 type attribSet struct {
@@ -27,29 +27,26 @@ type attribError struct {
 	found rune
 }
 
-
 // target and rereq patterns
 type pattern struct {
-    issuffix bool       // is a suffix '%' rule, so we should define $stem.
-    spat string         // simple string pattern
-    rpat *regexp.Regexp // non-nil if this is a regexp pattern
+	issuffix bool           // is a suffix '%' rule, so we should define $stem.
+	spat     string         // simple string pattern
+	rpat     *regexp.Regexp // non-nil if this is a regexp pattern
 }
-
 
 // Match a pattern, returning an array of submatches, or nil if it doesn'm
 // match.
 func (p *pattern) match(target string) []string {
-    if p.rpat != nil {
-        return p.rpat.FindStringSubmatch(target)
-    }
+	if p.rpat != nil {
+		return p.rpat.FindStringSubmatch(target)
+	}
 
-    if target == p.spat {
-        return make([]string, 0)
-    }
+	if target == p.spat {
+		return make([]string, 0)
+	}
 
-    return nil
+	return nil
 }
-
 
 // A single rule.
 type rule struct {
@@ -59,19 +56,17 @@ type rule struct {
 	shell      []string   // command used to execute the recipe
 	recipe     string     // recipe source
 	command    []string   // command attribute
-    ismeta     bool       // is this a meta rule
-    mutex      sync.Mutex // prevent the rule from being executed multiple times
+	ismeta     bool       // is this a meta rule
+	mutex      sync.Mutex // prevent the rule from being executed multiple times
 }
-
 
 // A set of rules.
 type ruleSet struct {
 	vars  map[string][]string
 	rules []rule
-    // map a target to an array of indexes into rules
-    targetrules map[string][]int
+	// map a target to an array of indexes into rules
+	targetrules map[string][]int
 }
-
 
 // Read attributes for an array of strings, updating the rule.
 func (r *rule) parseAttribs(inputs []string) *attribError {
@@ -124,16 +119,15 @@ func (r *rule) parseAttribs(inputs []string) *attribError {
 
 // Add a rule to the rule set.
 func (rs *ruleSet) add(r rule) {
-    rs.rules = append(rs.rules, r)
-    k := len(rs.rules) - 1
-    for i := range r.targets {
-        if r.targets[i].rpat == nil {
-            rs.targetrules[r.targets[i].spat] =
-                append(rs.targetrules[r.targets[i].spat], k)
-        }
-    }
+	rs.rules = append(rs.rules, r)
+	k := len(rs.rules) - 1
+	for i := range r.targets {
+		if r.targets[i].rpat == nil {
+			rs.targetrules[r.targets[i].spat] =
+				append(rs.targetrules[r.targets[i].spat], k)
+		}
+	}
 }
-
 
 func isValidVarName(v string) bool {
 	for i := 0; i < len(v); {
@@ -149,16 +143,15 @@ func isValidVarName(v string) bool {
 }
 
 func isdigit(c rune) bool {
-    return '0' <= c && c <= '9'
+	return '0' <= c && c <= '9'
 }
-
 
 func isalpha(c rune) bool {
 	return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')
 }
 
 func isalnum(c rune) bool {
-    return isalpha(c) || isdigit(c)
+	return isalpha(c) || isdigit(c)
 }
 
 type assignmentError struct {
@@ -175,13 +168,11 @@ func (rs *ruleSet) executeAssignment(ts []token) *assignmentError {
 			ts[0]}
 	}
 
-
 	// expanded variables
 	vals := make([]string, 0)
 	for i := 1; i < len(ts); i++ {
-        vals = append(vals, expand(ts[i].val, rs.vars, true)...)
+		vals = append(vals, expand(ts[i].val, rs.vars, true)...)
 	}
-
 
 	rs.vars[assignee] = vals
 	return nil

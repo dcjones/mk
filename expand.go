@@ -1,33 +1,31 @@
-
 // String substitution and expansion.
 
 package main
 
 import (
-    "strings"
-    "unicode/utf8"
+	"strings"
+	"unicode/utf8"
 )
-
 
 // Expand a word. This includes substituting variables and handling quotes.
 func expand(input string, vars map[string][]string, expandBackticks bool) []string {
-    parts := make([]string, 0)
-    expanded := ""
+	parts := make([]string, 0)
+	expanded := ""
 	var i, j int
 	for i = 0; i < len(input); {
 		j = i + strings.IndexAny(input[i:], "\"'`$\\")
 
 		if j < 0 {
-            expanded += input[i:]
+			expanded += input[i:]
 			break
 		}
 
-        println("-------------------")
-        println(len(input))
-        println(i)
-        println(j)
+		println("-------------------")
+		println(len(input))
+		println(i)
+		println(j)
 
-        expanded += input[i:j]
+		expanded += input[i:j]
 		c, w := utf8.DecodeRuneInString(input[j:])
 		i = j + w
 
@@ -36,41 +34,41 @@ func expand(input string, vars map[string][]string, expandBackticks bool) []stri
 		switch c {
 		case '\\':
 			out, off = expandEscape(input[i:])
-            expanded += out
+			expanded += out
 
 		case '"':
 			out, off = expandDoubleQuoted(input[i:], vars, expandBackticks)
-            expanded += out
+			expanded += out
 
 		case '\'':
 			out, off = expandSingleQuoted(input[i:])
-            expanded += out
+			expanded += out
 
 		case '`':
-            if expandBackticks {
-                out, off = expandBackQuoted(input[i:], vars)
-            } else {
-                out = input
-                off = len(input)
-            }
-            expanded += out
+			if expandBackticks {
+				out, off = expandBackQuoted(input[i:], vars)
+			} else {
+				out = input
+				off = len(input)
+			}
+			expanded += out
 
 		case '$':
-            var outparts []string
-            outparts, off = expandSigil(input[i:], vars)
-            if len(outparts) > 0 {
-                outparts[0] = expanded + outparts[0]
-                expanded = outparts[len(outparts)-1]
-                parts = append(parts, outparts[:len(outparts)-1]...)
-            }
+			var outparts []string
+			outparts, off = expandSigil(input[i:], vars)
+			if len(outparts) > 0 {
+				outparts[0] = expanded + outparts[0]
+				expanded = outparts[len(outparts)-1]
+				parts = append(parts, outparts[:len(outparts)-1]...)
+			}
 		}
 
 		i += off
 	}
 
-    if len(expanded) > 0 {
-        parts = append(parts, expanded)
-    }
+	if len(expanded) > 0 {
+		parts = append(parts, expanded)
+	}
 
 	return parts
 }
@@ -126,188 +124,177 @@ func expandSingleQuoted(input string) (string, int) {
 
 // Expand something starting with at '$'.
 func expandSigil(input string, vars map[string][]string) ([]string, int) {
-    c, w := utf8.DecodeRuneInString(input)
-    var offset int
-    var varname string
-    if c == '{' {
-        j := strings.IndexRune(input[w:], '}')
-        if j < 0 {
-            return []string{"$" + input}, len(input)
-        }
+	c, w := utf8.DecodeRuneInString(input)
+	var offset int
+	var varname string
+	if c == '{' {
+		j := strings.IndexRune(input[w:], '}')
+		if j < 0 {
+			return []string{"$" + input}, len(input)
+		}
 
-        varname = input[w:j]
-        offset = j + 1
-    } else {
-        // try to match a variable name
-        i := 0
-        j := i
-        for j < len(input) {
-            c, w = utf8.DecodeRuneInString(input[j:])
-            if !(isalpha(c) || c == '_' || (j > i && isdigit(c))) {
-                break
-            }
-            j += w
-        }
+		varname = input[w:j]
+		offset = j + 1
+	} else {
+		// try to match a variable name
+		i := 0
+		j := i
+		for j < len(input) {
+			c, w = utf8.DecodeRuneInString(input[j:])
+			if !(isalpha(c) || c == '_' || (j > i && isdigit(c))) {
+				break
+			}
+			j += w
+		}
 
-        if j > i {
-            varname = input[i:j]
-            offset = j
-        } else {
-            return []string{"$" + input}, len(input)
-        }
-    }
+		if j > i {
+			varname = input[i:j]
+			offset = j
+		} else {
+			return []string{"$" + input}, len(input)
+		}
+	}
 
-    if isValidVarName(varname) {
-        varvals, ok := vars[varname]
-        if ok {
-            return varvals, offset
-        }
-    }
+	if isValidVarName(varname) {
+		varvals, ok := vars[varname]
+		if ok {
+			return varvals, offset
+		}
+	}
 
-    return []string{"$" + input}, len(input)
+	return []string{"$" + input}, len(input)
 }
-
 
 // Find and expand all sigils.
 func expandSigils(input string, vars map[string][]string) []string {
-    parts := make([]string, 0)
-    expanded := ""
-    for i := 0; i < len(input); {
-        j := strings.IndexRune(input[i:], '$')
-        if j < 0 {
-            expanded += input[i:]
-            break
-        }
+	parts := make([]string, 0)
+	expanded := ""
+	for i := 0; i < len(input); {
+		j := strings.IndexRune(input[i:], '$')
+		if j < 0 {
+			expanded += input[i:]
+			break
+		}
 
-        ex, k := expandSigil(input[j+1:], vars)
-        if len(ex) > 0 {
-            ex[0] = expanded + ex[0]
-            expanded = ex[len(ex)-1]
-            parts = append(parts, ex[:len(ex)-1]...)
-        }
-        i = k
-    }
+		ex, k := expandSigil(input[j+1:], vars)
+		if len(ex) > 0 {
+			ex[0] = expanded + ex[0]
+			expanded = ex[len(ex)-1]
+			parts = append(parts, ex[:len(ex)-1]...)
+		}
+		i = k
+	}
 
-    if len(expanded) > 0 {
-        parts = append(parts, expanded)
-    }
+	if len(expanded) > 0 {
+		parts = append(parts, expanded)
+	}
 
-    return parts
+	return parts
 }
-
 
 // Find and expand all sigils in a recipe, producing a flat string.
 func expandRecipeSigils(input string, vars map[string][]string) string {
-    expanded := ""
-    for i := 0; i < len(input); {
-        j := strings.IndexAny(input[i:], "$\\")
-        if j < 0 {
-            expanded += input[i:]
-            break
-        }
+	expanded := ""
+	for i := 0; i < len(input); {
+		j := strings.IndexAny(input[i:], "$\\")
+		if j < 0 {
+			expanded += input[i:]
+			break
+		}
 
-        expanded += input[i:j]
-        i = j
-        c, w := utf8.DecodeRuneInString(input[i:])
-        if c == '$' {
-            i += w
-            ex, k := expandSigil(input[i:], vars)
-            expanded += strings.Join(ex, " ")
-            i += k
-        } else if c == '\\' {
-            i += w
-            c, w := utf8.DecodeRuneInString(input[i:])
-            if c == '$' {
-                expanded += "$"
-            } else {
-                expanded += "\\" + string(c)
-            }
-            i += w
-        }
-    }
+		expanded += input[i:j]
+		i = j
+		c, w := utf8.DecodeRuneInString(input[i:])
+		if c == '$' {
+			i += w
+			ex, k := expandSigil(input[i:], vars)
+			expanded += strings.Join(ex, " ")
+			i += k
+		} else if c == '\\' {
+			i += w
+			c, w := utf8.DecodeRuneInString(input[i:])
+			if c == '$' {
+				expanded += "$"
+			} else {
+				expanded += "\\" + string(c)
+			}
+			i += w
+		}
+	}
 
-    return expanded
+	return expanded
 }
-
 
 // Expand all unescaped '%' characters.
 func expandSuffixes(input string, stem string) string {
-    expanded := make([]byte, 0)
-    for i := 0; i < len(input); {
-        j := strings.IndexAny(input[i:], "\\%")
-        if j < 0 {
-            expanded = append(expanded, input[i:]...)
-            break
-        }
+	expanded := make([]byte, 0)
+	for i := 0; i < len(input); {
+		j := strings.IndexAny(input[i:], "\\%")
+		if j < 0 {
+			expanded = append(expanded, input[i:]...)
+			break
+		}
 
-        c, w := utf8.DecodeRuneInString(input[j:])
-        if c == '%' {
-            expanded = append(expanded, stem...) 
-            i += w
-        } else {
-            j += w
-            c, w := utf8.DecodeRuneInString(input[j:])
-            if c == '%' {
-                expanded = append(expanded, '%')
-                i = j + w
-            }
-        }
-    }
+		c, w := utf8.DecodeRuneInString(input[j:])
+		if c == '%' {
+			expanded = append(expanded, stem...)
+			i += w
+		} else {
+			j += w
+			c, w := utf8.DecodeRuneInString(input[j:])
+			if c == '%' {
+				expanded = append(expanded, '%')
+				i = j + w
+			}
+		}
+	}
 
-    return string(expanded)
+	return string(expanded)
 }
-
 
 // TODO: expand RegexpRefs
 
-
 // Expand a backtick quoted string, by executing the contents.
 func expandBackQuoted(input string, vars map[string][]string) (string, int) {
-    // TODO: expand sigils?
+	// TODO: expand sigils?
 	j := strings.Index(input, "`")
 	if j < 0 {
 		return input, len(input)
 	}
 
-    // TODO: handle errors
+	// TODO: handle errors
 	output, _ := subprocess("sh", nil, input[:j], false, false, true)
 	return output, (j + 1)
 }
 
-
 // Split a string on whitespace taking into account escaping and quoting.
 //func splitQuoted(input string) []string {
-    //parts := make([]string, 0)
-    //var i, j int
-    //i = 0
-    //for {
-        //// skip all unescaped whitespace
-        //for i < len(input) {
-            //c, w := utf8.DecodeRuneInString(input[i:])
-            //if strings.IndexRune(" \t", c) < 0 {
-                //break
-            //}
-            //i += w
-        //}
-
-        //if i >= len(input) {
-            //break
-        //}
-
-        //// Ugh. Will this take into account quoting in variables?
-
-        //switch c {
-        //case '"':
-        //case '\'':
-        //default:
-
-        //}
-    //}
-
-    //return parts
+//parts := make([]string, 0)
+//var i, j int
+//i = 0
+//for {
+//// skip all unescaped whitespace
+//for i < len(input) {
+//c, w := utf8.DecodeRuneInString(input[i:])
+//if strings.IndexRune(" \t", c) < 0 {
+//break
+//}
+//i += w
 //}
 
+//if i >= len(input) {
+//break
+//}
 
+//// Ugh. Will this take into account quoting in variables?
 
+//switch c {
+//case '"':
+//case '\'':
+//default:
 
+//}
+//}
 
+//return parts
+//}

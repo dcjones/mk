@@ -6,8 +6,8 @@ package main
 import (
 	"fmt"
 	"os"
-    "regexp"
-    "strings"
+	"regexp"
+	"strings"
 )
 
 type parser struct {
@@ -53,8 +53,8 @@ type parserStateFun func(*parser, token) parserStateFun
 // Parse a mkfile, returning a new ruleSet.
 func parse(input string, name string) *ruleSet {
 	rules := &ruleSet{make(map[string][]string),
-                      make([]rule, 0),
-                      make(map[string][]int)}
+		make([]rule, 0),
+		make(map[string][]int)}
 	parseInto(input, name, rules)
 	return rules
 }
@@ -115,9 +115,9 @@ func parsePipeInclude(p *parser, t token) parserStateFun {
 		}
 
 		output, success := subprocess("sh", args, "", false, false, true)
-        if !success {
-            p.basicErrorAtToken("subprocess include failed", t)
-        }
+		if !success {
+			p.basicErrorAtToken("subprocess include failed", t)
+		}
 
 		parseInto(output, fmt.Sprintf("%s:sh", p.name), p.rules)
 
@@ -275,8 +275,8 @@ func parseRecipe(p *parser, t token) parserStateFun {
 	if j < len(p.tokenbuf) {
 		attribs := make([]string, 0)
 		for k := i + 1; k < j; k++ {
-            exparts := expand(p.tokenbuf[k].val, p.rules.vars, true)
-            attribs = append(attribs, exparts...)
+			exparts := expand(p.tokenbuf[k].val, p.rules.vars, true)
+			attribs = append(attribs, exparts...)
 		}
 		err := r.parseAttribs(attribs)
 		if err != nil {
@@ -284,9 +284,9 @@ func parseRecipe(p *parser, t token) parserStateFun {
 			p.basicErrorAtToken(msg, p.tokenbuf[i+1])
 		}
 
-        if r.attributes.regex {
-            r.ismeta = true
-        }
+		if r.attributes.regex {
+			r.ismeta = true
+		}
 	} else {
 		j = i
 	}
@@ -294,48 +294,48 @@ func parseRecipe(p *parser, t token) parserStateFun {
 	// targets
 	r.targets = make([]pattern, 0)
 	for k := 0; k < i; k++ {
-        exparts := expand(p.tokenbuf[k].val, p.rules.vars, true)
-        for i := range exparts {
-            targetstr := exparts[i]
-            r.targets = append(r.targets, pattern{spat: targetstr})
+		exparts := expand(p.tokenbuf[k].val, p.rules.vars, true)
+		for i := range exparts {
+			targetstr := exparts[i]
+			r.targets = append(r.targets, pattern{spat: targetstr})
 
-            if r.attributes.regex {
-                rpat, err := regexp.Compile(targetstr)
-                if err != nil {
-                    msg := fmt.Sprintf("invalid regular expression: %q", err)
-                    p.basicErrorAtToken(msg, p.tokenbuf[k])
-                }
-                r.targets[len(r.targets)-1].rpat = rpat
-            } else {
-                idx := strings.IndexRune(targetstr, '%')
-                if idx >= 0 {
-                    var left, right string
-                    if idx > 0 {
-                        left = regexp.QuoteMeta(targetstr[:idx])
-                    }
-                    if idx < len(targetstr) - 1 {
-                        right = regexp.QuoteMeta(targetstr[idx+1:])
-                    }
+			if r.attributes.regex {
+				rpat, err := regexp.Compile(targetstr)
+				if err != nil {
+					msg := fmt.Sprintf("invalid regular expression: %q", err)
+					p.basicErrorAtToken(msg, p.tokenbuf[k])
+				}
+				r.targets[len(r.targets)-1].rpat = rpat
+			} else {
+				idx := strings.IndexRune(targetstr, '%')
+				if idx >= 0 {
+					var left, right string
+					if idx > 0 {
+						left = regexp.QuoteMeta(targetstr[:idx])
+					}
+					if idx < len(targetstr)-1 {
+						right = regexp.QuoteMeta(targetstr[idx+1:])
+					}
 
-                    patstr := fmt.Sprintf("^%s(.*)%s$", left, right)
-                    rpat, err := regexp.Compile(patstr)
-                    if err != nil {
-                        msg := fmt.Sprintf("error compiling suffix rule. This is a bug.", err)
-                        p.basicErrorAtToken(msg, p.tokenbuf[k])
-                    }
-                    r.targets[len(r.targets)-1].rpat = rpat
-                    r.targets[len(r.targets)-1].issuffix = true
-                    r.ismeta = true
-                }
-            }
-        }
+					patstr := fmt.Sprintf("^%s(.*)%s$", left, right)
+					rpat, err := regexp.Compile(patstr)
+					if err != nil {
+						msg := fmt.Sprintf("error compiling suffix rule. This is a bug.", err)
+						p.basicErrorAtToken(msg, p.tokenbuf[k])
+					}
+					r.targets[len(r.targets)-1].rpat = rpat
+					r.targets[len(r.targets)-1].issuffix = true
+					r.ismeta = true
+				}
+			}
+		}
 	}
 
 	// prereqs
 	r.prereqs = make([]string, 0)
 	for k := j + 1; k < len(p.tokenbuf); k++ {
-        exparts := expand(p.tokenbuf[k].val, p.rules.vars, true)
-        r.prereqs = append(r.prereqs, exparts...)
+		exparts := expand(p.tokenbuf[k].val, p.rules.vars, true)
+		r.prereqs = append(r.prereqs, exparts...)
 	}
 
 	if t.typ == tokenRecipe {
