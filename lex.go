@@ -49,6 +49,7 @@ type token struct {
 	typ  tokenType // token type
 	val  string    // token string
 	line int       // line where it was found
+	col  int       // column on which the token began
 }
 
 func (t *token) String() string {
@@ -65,6 +66,7 @@ type lexer struct {
 	input    string     // input string to be lexed
 	output   chan token // channel on which tokens are sent
 	start    int        // token beginning
+	startcol int        // column on which the token begins
 	pos      int        // position within input
 	line     int        // line within input
 	col      int        // column within input
@@ -129,11 +131,13 @@ func (l *lexer) next() rune {
 func (l *lexer) skip() {
 	l.next()
 	l.start = l.pos
+	l.startcol = l.col
 }
 
 func (l *lexer) emit(typ tokenType) {
-	l.output <- token{typ, l.input[l.start:l.pos], l.line}
+	l.output <- token{typ, l.input[l.start:l.pos], l.line, l.startcol}
 	l.start = l.pos
+	l.startcol = 0
 }
 
 // Consume the next run if it is in the given string.
@@ -189,7 +193,7 @@ func (l *lexer) skipUntil(invalid string) {
 
 // Start a new lexer to lex the given input.
 func lex(input string) (*lexer, chan token) {
-	l := &lexer{input: input, output: make(chan token), line: 1, indented: true}
+	l := &lexer{input: input, output: make(chan token), line: 1, col: 0, indented: true}
 	go l.run()
 	return l, l.output
 }

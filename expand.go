@@ -196,14 +196,14 @@ func expandSigils(input string, vars map[string][]string) []string {
 func expandRecipeSigils(input string, vars map[string][]string) string {
 	expanded := ""
 	for i := 0; i < len(input); {
-		j := strings.IndexAny(input[i:], "$\\")
-		if j < 0 {
+		off := strings.IndexAny(input[i:], "$\\")
+		if off < 0 {
 			expanded += input[i:]
 			break
 		}
+		expanded += input[i : i+off]
+		i += off
 
-		expanded += input[i:j]
-		i = j
 		c, w := utf8.DecodeRuneInString(input[i:])
 		if c == '$' {
 			i += w

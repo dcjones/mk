@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sync"
 )
 
 // True if messages should be printed without fancy colors.
@@ -12,6 +13,9 @@ var nocolor bool = false
 
 // True if we are no actualyl executing any recipes or updating any timestamps.
 var dryrun bool = false
+
+// Lock on standard out, messages don't get interleaved too much.
+var mkMsgMutex sync.Mutex
 
 // The maximum number of times an rule may be applied.
 const max_rule_cnt = 3
@@ -29,7 +33,9 @@ const (
 
 func mk(rs *ruleSet, target string, dryrun bool) {
 	g := buildgraph(rs, target)
-	//g.visualize(os.Stdout)
+	if g.root.exists {
+		return
+	}
 	mkNode(g, g.root)
 }
 
@@ -129,13 +135,13 @@ func mkNode(g *graph, u *node) {
 
 	// execute the recipe, unless the prereqs failed
 	if finalstatus != nodeStatusFailed {
-		mkPrintMessage("mking " + u.name)
+		//mkPrintMessage("mking " + u.name)
 		if !dorecipe(u.name, u, e) {
 			finalstatus = nodeStatusFailed
 		}
 	}
 
-	mkPrintSuccess("finished mking " + u.name)
+	//mkPrintSuccess("finished mking " + u.name)
 }
 
 func mkError(msg string) {
@@ -158,26 +164,34 @@ func mkPrintSuccess(msg string) {
 }
 
 func mkPrintMessage(msg string) {
+	mkMsgMutex.Lock()
 	if nocolor {
 		fmt.Println(msg)
 	} else {
 		fmt.Printf("%s%s%s\n", colorBlue, msg, colorDefault)
 	}
+	mkMsgMutex.Unlock()
 }
 
-func mkPrintRecipe(msg string) {
-	if !nocolor {
-		os.Stdout.WriteString(colorYellow)
+func mkPrintRecipe(target string, recipe string) {
+	mkMsgMutex.Lock()
+	if nocolor {
+		fmt.Printf("%s: ", target)
+	} else {
+		fmt.Printf("%s%s%s => %s", colorBlue, target, colorDefault, colorMagenta)
 	}
-	printIndented(os.Stdout, msg)
+	printIndented(os.Stdout, recipe, len(target)+4)
+	if len(recipe) == 0 {
+		os.Stdout.WriteString("\n")
+	}
 	if !nocolor {
 		os.Stdout.WriteString(colorDefault)
 	}
+	mkMsgMutex.Unlock()
 }
 
 func main() {
 	var mkfilepath string
-	var dryrun bool
 	flag.StringVar(&mkfilepath, "f", "mkfile", "use the given file as mkfile")
 	flag.BoolVar(&dryrun, "n", false, "print commands without actually executing")
 	flag.Parse()

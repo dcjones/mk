@@ -76,7 +76,7 @@ func parseInto(input string, name string, rules *ruleSet) {
 
 	// insert a dummy newline to allow parsing of any assignments or recipeless
 	// rules to finish.
-	state = state(p, token{tokenNewline, "\n", l.line})
+	state = state(p, token{tokenNewline, "\n", l.line, l.col})
 
 	// TODO: Error when state != parseTopLevel
 }
@@ -339,7 +339,7 @@ func parseRecipe(p *parser, t token) parserStateFun {
 	}
 
 	if t.typ == tokenRecipe {
-		r.recipe = t.val
+		r.recipe = stripIndentation(t.val, t.col)
 	}
 
 	p.rules.add(r)

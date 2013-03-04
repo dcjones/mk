@@ -10,27 +10,56 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"unicode/utf8"
 )
 
 // Try to unindent a recipe, so that it begins an column 0. (This is mainly for
 // recipes in python, or other indentation-significant languages.)
-//func stripIndentation(s string) string {
-
-//}
-
-// Indent each line of a recipe.
-func printIndented(out io.Writer, s string) {
+func stripIndentation(s string, mincol int) string {
+	// trim leading whitespace
 	reader := bufio.NewReader(strings.NewReader(s))
+	output := ""
 	for {
 		line, err := reader.ReadString('\n')
-		if len(line) > 0 {
-			io.WriteString(out, "    ")
-			io.WriteString(out, line)
+		col := 0
+		i := 0
+		for i < len(line) && col < mincol {
+			c, w := utf8.DecodeRuneInString(line[i:])
+			if strings.IndexRune(" \t\n", c) >= 0 {
+				col += 1
+				i += w
+			} else {
+				break
+			}
 		}
+
+		output += line[i:]
 
 		if err != nil {
 			break
 		}
+	}
+
+	return output
+}
+
+// Indent each line of a recipe.
+func printIndented(out io.Writer, s string, ind int) {
+	indentation := strings.Repeat(" ", ind)
+	reader := bufio.NewReader(strings.NewReader(s))
+	firstline := true
+	for {
+		line, err := reader.ReadString('\n')
+		if len(line) > 0 {
+			if !firstline {
+				io.WriteString(out, indentation)
+			}
+			io.WriteString(out, line)
+		}
+		if err != nil {
+			break
+		}
+		firstline = false
 	}
 }
 
@@ -70,7 +99,7 @@ func dorecipe(target string, u *node, e *edge) bool {
 	}
 
 	if !e.r.attributes.quiet {
-		mkPrintRecipe(input)
+		mkPrintRecipe(target, input)
 	}
 
 	if dryrun {
