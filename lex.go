@@ -1,16 +1,23 @@
-// TODO: Backquoted strings.
-// TODO: Comments
 
 package main
 
 import (
 	"strings"
 	"unicode/utf8"
+    "fmt"
 )
 
 type tokenType int
 
 const eof rune = '\000'
+
+// Rune's that cannot be part of a bare (unquoted) string.
+const nonBareRunes = " \t\n\r\\=:#'\""
+
+// Return true if the string contains whitespace only.
+func onlyWhitespace(s string) bool {
+    return strings.IndexAny(s, " \t\r\n") < 0
+}
 
 const (
 	tokenError tokenType = iota
@@ -79,7 +86,9 @@ type lexer struct {
 type lexerStateFun func(*lexer) lexerStateFun
 
 func (l *lexer) lexerror(what string) {
-	l.errmsg = what
+    if l.errmsg == "" {
+        l.errmsg = what
+    }
 	l.emit(tokenError)
 }
 
@@ -173,6 +182,10 @@ func (l *lexer) acceptUntil(invalid string) {
 	for l.pos < len(l.input) && strings.IndexRune(invalid, l.peek()) < 0 {
 		l.next()
 	}
+
+    if l.peek() == eof {
+        l.lexerror(fmt.Sprintf("end of file encountered while looking for one of: %s", invalid))
+    }
 }
 
 // Skip characters from the valid string until the next is not.
@@ -189,6 +202,10 @@ func (l *lexer) skipUntil(invalid string) {
 	for l.pos < len(l.input) && strings.IndexRune(invalid, l.peek()) < 0 {
 		l.skip()
 	}
+
+    if l.peek() == eof {
+        l.lexerror(fmt.Sprintf("end of file encountered while looking for one of: %s", invalid))
+    }
 }
 
 // Start a new lexer to lex the given input.
@@ -252,8 +269,10 @@ func lexTopLevel(l *lexer) lexerStateFun {
 		return lexBackQuotedWord
 	}
 
-	// TODO: No! The lexer can get stuck in a loop this way.
-	// Check if the next charar is a valid bare string chacter. If not, error.
+    if strings.IndexRune(nonBareRunes, c) >= 0 {
+        l.lexerror(fmt.Sprintf("expected a unquoted string, but found '%c'", c))
+    }
+
 	return lexBareWord
 }
 
@@ -287,12 +306,17 @@ func lexInclude(l *lexer) lexerStateFun {
 
 func lexDoubleQuotedWord(l *lexer) lexerStateFun {
 	l.next() // '"'
-	for l.peek() != '"' {
+	for l.peek() != '"' && l.peek() != eof {
 		l.acceptUntil("\\\"")
 		if l.accept("\\") {
 			l.accept("\"")
 		}
 	}
+
+    if l.peek() == eof {
+        l.lexerror("end of file encountered while parsing a quoted string.")
+    }
+
 	l.next() // '"'
 	return lexBareWord
 }
@@ -320,13 +344,14 @@ func lexRecipe(l *lexer) lexerStateFun {
 		}
 	}
 
-	// TODO: don't emit if there is only whitespace in the recipe
-	l.emit(tokenRecipe)
+    if !onlyWhitespace(l.input[l.start:l.pos]) {
+        l.emit(tokenRecipe)
+    }
 	return lexTopLevel
 }
 
 func lexBareWord(l *lexer) lexerStateFun {
-	l.acceptUntil(" \t\n\r\\=:#'\"")
+	l.acceptUntil(nonBareRunes)
 	if l.peek() == '"' {
 		return lexDoubleQuotedWord
 	} else if l.peek() == '\'' {

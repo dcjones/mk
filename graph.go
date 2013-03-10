@@ -56,10 +56,10 @@ type node struct {
 	flags     nodeFlag          // bitwise combination of node flags
 }
 
-// Create a new node
-func (g *graph) newnode(name string) *node {
-	u := &node{name: name}
-	info, err := os.Stat(name)
+
+// Update a node's timestamp and 'exists' flag.
+func (u *node) updateTimestamp() {
+	info, err := os.Stat(u.name)
 	if err == nil {
 		u.t = info.ModTime()
 		u.exists = true
@@ -67,11 +67,18 @@ func (g *graph) newnode(name string) *node {
 	} else {
 		_, ok := err.(*os.PathError)
 		if ok {
+            u.t =   time.Unix(0, 0)
 			u.exists = false
 		} else {
 			mkError(err.Error())
 		}
 	}
+}
+
+// Create a new node
+func (g *graph) newnode(name string) *node {
+	u := &node{name: name}
+    u.updateTimestamp()
 	g.nodes[name] = u
 	return u
 }
@@ -103,14 +110,10 @@ func buildgraph(rs *ruleSet, target string) *graph {
 	// keep track of how many times each rule is visited, to avoid cycles.
 	rulecnt := make([]int, len(rs.rules))
 	g.root = applyrules(rs, g, target, rulecnt)
-    println("cyclecheck")
     g.cyclecheck(g.root)
 	g.root.flags |= nodeFlagProbable
-    println("vacuous")
     g.vacuous(g.root)
-    println("ambiguous")
     g.ambiguous(g.root)
-    println("done")
 
 	return g
 }
@@ -192,7 +195,6 @@ func applyrules(rs *ruleSet, g *graph, target string, rulecnt []int) *node {
 			}
 
 			rulecnt[k] += 1
-            fmt.Println(rulecnt)
 			if len(r.prereqs) == 0 {
 				e := u.newedge(nil, r)
 				e.stem = stem

@@ -86,7 +86,7 @@ func dorecipe(target string, u *node, e *edge) bool {
 			prereqs = append(prereqs, u.prereqs[i].v.name)
 		}
 	}
-	vars["prereqs"] = prereqs
+	vars["prereq"] = prereqs
 
 	input := expandRecipeSigils(e.r.recipe, vars)
 	sh := "sh"
@@ -112,8 +112,6 @@ func dorecipe(target string, u *node, e *edge) bool {
 		true,
 		true,
 		false)
-
-	// TODO: update the timestamps of each target
 
 	return success
 }

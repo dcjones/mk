@@ -154,7 +154,9 @@ func expandSigil(input string, vars map[string][]string) ([]string, int) {
 		varvals, ok := vars[varname]
 		if ok {
 			return varvals, offset
-		}
+		} else {
+            return []string{"$" + input[:offset]}, offset
+        }
 	}
 
 	return []string{"$" + input}, len(input)

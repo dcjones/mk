@@ -5,9 +5,10 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
+    "io/ioutil"
+    "os"
 )
 
 type parser struct {
@@ -19,10 +20,10 @@ type parser struct {
 
 // Pretty errors.
 func (p *parser) parseError(context string, expected string, found token) {
-	fmt.Fprintf(os.Stderr, "%s:%d: syntax error: ", p.name, found.line)
-	fmt.Fprintf(os.Stderr, "while %s, expected %s but found \"%s\".\n",
-		context, expected, found.String())
-	os.Exit(1)
+    mkPrintError(fmt.Sprintf("%s:%d: syntax error: ", p.name, found.line))
+	mkPrintError(fmt.Sprintf("while %s, expected %s but found '%s'.\n",
+		context, expected, found.String()))
+    mkError("")
 }
 
 // More basic errors.
@@ -31,9 +32,7 @@ func (p *parser) basicErrorAtToken(what string, found token) {
 }
 
 func (p *parser) basicErrorAtLine(what string, line int) {
-	fmt.Fprintf(os.Stderr, "%s:%d: syntax error: %s\n",
-		p.name, line, what)
-	os.Exit(1)
+	mkError(fmt.Sprintf("%s:%d: syntax error: %s\n", p.name, line, what))
 }
 
 // Accept a token for use in the current statement being parsed.
@@ -66,8 +65,7 @@ func parseInto(input string, name string, rules *ruleSet) {
 	state := parseTopLevel
 	for t := range tokens {
 		if t.typ == tokenError {
-			// TODO: fancier error messages
-			fmt.Fprintf(os.Stderr, "Error: %s", l.errmsg)
+            p.basicErrorAtLine(l.errmsg, t.line)
 			break
 		}
 
@@ -137,7 +135,7 @@ func parsePipeInclude(p *parser, t token) parserStateFun {
 		p.tokenbuf = append(p.tokenbuf, t)
 
 	default:
-		// TODO: Complain about unexpected tokens.
+        p.parseError("parsing piped include", "a shell command", t)
 	}
 
 	return parsePipeInclude
@@ -147,15 +145,25 @@ func parsePipeInclude(p *parser, t token) parserStateFun {
 func parseRedirInclude(p *parser, t token) parserStateFun {
 	switch t.typ {
 	case tokenNewline:
-		// TODO:
-		// Open the file, read its context, call parseInto recursively.
-		// Clear out p.tokenbuf
+        filename := ""
+        for i := range p.tokenbuf {
+            filename += p.tokenbuf[i].val
+        }
+        file, err := os.Open(filename)
+        if err != nil {
+            p.basicErrorAtToken(fmt.Sprintf("cannot open %s", filename), p.tokenbuf[0])
+        }
+        input, _ := ioutil.ReadAll(file)
+        parseInto(string(input), filename, p.rules)
+
+        p.clear()
+        return parseTopLevel
 
 	case tokenWord:
-		// TODO:
+		p.tokenbuf = append(p.tokenbuf, t)
 
 	default:
-		// TODO: Complain about unexpected tokens.
+        p.parseError("parsing include", "a file name", t)
 	}
 
 	return parseRedirInclude
@@ -182,7 +190,7 @@ func parseEqualsOrTarget(p *parser, t token) parserStateFun {
 		return parseAttributesOrPrereqs
 
 	default:
-		p.parseError("reading a a target or assignment",
+		p.parseError("reading a target or assignment",
 			"'=', ':', or another target", t)
 	}
 

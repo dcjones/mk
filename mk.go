@@ -128,6 +128,7 @@ func mkNode(g *graph, u *node) {
 	for i := range prereqs {
 		prereqs[i].mutex.Lock()
 		// needs to be built?
+        u.updateTimestamp()
 		if !prereqs[i].exists || e.r.attributes.virtual || rebuildall || (u.exists && u.t.Before(prereqs[i].t)) {
 			switch prereqs[i].status {
 			case nodeStatusReady:
@@ -143,12 +144,7 @@ func mkNode(g *graph, u *node) {
 	e.r.mutex.Unlock()
 
 	// wait until all the prereqs are built
-	//fmt.Printf("%s: %d\n", u.name, pending)
 	for pending > 0 {
-		//for i := range prereqs {
-		//fmt.Println(prereqs[i].name)
-		//}
-
 		s := <-prereqstat
 		pending--
 		if s == nodeStatusFailed {
@@ -164,8 +160,6 @@ func mkNode(g *graph, u *node) {
 		}
 		finishSubproc()
 	}
-
-	//mkPrintSuccess("finished mking " + u.name)
 }
 
 func mkError(msg string) {
@@ -177,7 +171,7 @@ func mkPrintError(msg string) {
 	if !nocolor {
 		os.Stderr.WriteString(ansiTermRed)
 	}
-	fmt.Fprintf(os.Stderr, "mk: %s\n", msg)
+	fmt.Fprintf(os.Stderr, "%s", msg)
 	if !nocolor {
 		os.Stderr.WriteString(ansiTermDefault)
 	}

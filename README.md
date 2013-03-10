@@ -1,14 +1,28 @@
 
 # Mk
 
-Mk is a reboot of the Plan 9 mk command, which itself is a replacement for make.
-This tool is for anyone who loves make, but hates all its stupid bullshit.
+Mk is a reboot of the Plan 9 mk command, which itself is [a successor to
+make]($). This tool is for anyone who loves make, but hates all its stupid
+bullshit.
+
+# Installation
+
+ 1. Install Go.
+ 2. Run `go install github.com/dcjones/mk`
 
 # Why Plan 9 mk is better than make
 
-Plan 9 mk blows make out of the water. Yet tragically, few use or have even heard
-of it. Put simply, mk takes make, keeps its simple direct syntax, but fixes
-basically everything that's annoyed you over the years. To name a few things:
+Way back in the 90s, some smart guys at Bell Labs got together and decided to
+write new operating system to replace Unix. The idea was to keep everything that
+was great about Unix, but totally disregard backwards compatibility in a quest
+for something better. The operating system they designed, Plan 9, had a lot of
+terrific ideas, and though some were cherry picked, the OS as a whole never
+really caught on.
+
+Among the gems in Plan 9 was a rewrite of the venerable Unix make
+command, in the form of mk. Simply put, mk is make, but with a large collection
+of relatively minor improvements, adding up to something more consistent,
+elegant, and powerful. To name a few specifics:
 
   1. Recipes are delimited by any indentation, not tab characters in particular.
   1. Phony targets are handled separately from file targets. Your mkfile won't
@@ -29,29 +43,30 @@ basically everything that's annoyed you over the years. To name a few things:
   1. Variables are expanded in recipes only if they are defined. They way you
      usually don't have to escape `$`.
 
-And much more! For more, read the original mk paper: ["Mk: a successor to
-make"](#).
+And much more!
 
 # Improvements over Plan 9 mk
 
 This mk stays mostly faithful to Plan 9, but makes a few (in my opinion)
 improvements.
 
-  1. A clean, modern implementation in go, that doesn't depend on the whole plan
-     9 for userspace stack.
-  1. Use go regular expressions, which are perl-like. The original mk used plan9
+  1. A clean, modern implementation in Go, that doesn't depend on the whole Plan
+     9 stack.
+  1. Use Go regular expressions, which are perl-like. The original mk used plan9
      regex, which few people know or care to learn.
   1. Allow blank lines in recipes. A recipe is any indented block of text, and
-     continues until a non-indented character or the end of the file.
+     continues until a non-indented character or the end of the file. (Similar
+     to blocks in Python.)
   1. Add an 'S' attribute to execute recipes with programs other than sh. This
      way, you don't have to separate your six line python script into its own
-     file. Just stick it in the mkfile.
+     file. Just stick it directly in the mkfile.
   1. Use sh syntax for command insertion (i.e. backticks) rather than rc shell
      syntax.
-
+  1. Pretty colors.
 
 # Current State
 
-Totally non-functional. Check back later!
+Functional, but with some bugs and some unimplemented minor features. Give it a
+try and see what you think!
 
 
