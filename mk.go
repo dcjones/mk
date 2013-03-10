@@ -63,7 +63,7 @@ func mk(rs *ruleSet, target string, dryrun bool) {
 	if g.root.exists && !rebuildall {
 		return
 	}
-    mkNode(g, g.root)
+	mkNode(g, g.root)
 }
 
 // Build a target in the graph.
@@ -128,7 +128,7 @@ func mkNode(g *graph, u *node) {
 	for i := range prereqs {
 		prereqs[i].mutex.Lock()
 		// needs to be built?
-        u.updateTimestamp()
+		u.updateTimestamp()
 		if !prereqs[i].exists || e.r.attributes.virtual || rebuildall || (u.exists && u.t.Before(prereqs[i].t)) {
 			switch prereqs[i].status {
 			case nodeStatusReady:
@@ -233,16 +233,16 @@ func main() {
 	targets := flag.Args()
 
 	// build the first non-meta rule in the makefile, if none are given explicitly
-    if len(targets) == 0 {
-        for i := range rs.rules {
-            if !rs.rules[i].ismeta {
-                for j := range rs.rules[i].targets {
-                    targets = append(targets, rs.rules[i].targets[j].spat)
-                }
-                break
-            }
-        }
-    }
+	if len(targets) == 0 {
+		for i := range rs.rules {
+			if !rs.rules[i].ismeta {
+				for j := range rs.rules[i].targets {
+					targets = append(targets, rs.rules[i].targets[j].spat)
+				}
+				break
+			}
+		}
+	}
 
 	if len(targets) == 0 {
 		fmt.Println("mk: nothing to mk")
@@ -251,7 +251,7 @@ func main() {
 
 	// TODO: For multiple targets, we should add a dummy rule that depends on
 	// all let mk handle executing each.
-    for _, target := range targets {
-        mk(rs, target, dryrun)
-    }
+	for _, target := range targets {
+		mk(rs, target, dryrun)
+	}
 }

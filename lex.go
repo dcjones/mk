@@ -1,10 +1,9 @@
-
 package main
 
 import (
+	"fmt"
 	"strings"
 	"unicode/utf8"
-    "fmt"
 )
 
 type tokenType int
@@ -16,7 +15,7 @@ const nonBareRunes = " \t\n\r\\=:#'\""
 
 // Return true if the string contains whitespace only.
 func onlyWhitespace(s string) bool {
-    return strings.IndexAny(s, " \t\r\n") < 0
+	return strings.IndexAny(s, " \t\r\n") < 0
 }
 
 const (
@@ -86,9 +85,9 @@ type lexer struct {
 type lexerStateFun func(*lexer) lexerStateFun
 
 func (l *lexer) lexerror(what string) {
-    if l.errmsg == "" {
-        l.errmsg = what
-    }
+	if l.errmsg == "" {
+		l.errmsg = what
+	}
 	l.emit(tokenError)
 }
 
@@ -183,9 +182,9 @@ func (l *lexer) acceptUntil(invalid string) {
 		l.next()
 	}
 
-    if l.peek() == eof {
-        l.lexerror(fmt.Sprintf("end of file encountered while looking for one of: %s", invalid))
-    }
+	if l.peek() == eof {
+		l.lexerror(fmt.Sprintf("end of file encountered while looking for one of: %s", invalid))
+	}
 }
 
 // Skip characters from the valid string until the next is not.
@@ -203,9 +202,9 @@ func (l *lexer) skipUntil(invalid string) {
 		l.skip()
 	}
 
-    if l.peek() == eof {
-        l.lexerror(fmt.Sprintf("end of file encountered while looking for one of: %s", invalid))
-    }
+	if l.peek() == eof {
+		l.lexerror(fmt.Sprintf("end of file encountered while looking for one of: %s", invalid))
+	}
 }
 
 // Start a new lexer to lex the given input.
@@ -269,9 +268,9 @@ func lexTopLevel(l *lexer) lexerStateFun {
 		return lexBackQuotedWord
 	}
 
-    if strings.IndexRune(nonBareRunes, c) >= 0 {
-        l.lexerror(fmt.Sprintf("expected a unquoted string, but found '%c'", c))
-    }
+	if strings.IndexRune(nonBareRunes, c) >= 0 {
+		l.lexerror(fmt.Sprintf("expected a unquoted string, but found '%c'", c))
+	}
 
 	return lexBareWord
 }
@@ -313,9 +312,9 @@ func lexDoubleQuotedWord(l *lexer) lexerStateFun {
 		}
 	}
 
-    if l.peek() == eof {
-        l.lexerror("end of file encountered while parsing a quoted string.")
-    }
+	if l.peek() == eof {
+		l.lexerror("end of file encountered while parsing a quoted string.")
+	}
 
 	l.next() // '"'
 	return lexBareWord
@@ -344,9 +343,9 @@ func lexRecipe(l *lexer) lexerStateFun {
 		}
 	}
 
-    if !onlyWhitespace(l.input[l.start:l.pos]) {
-        l.emit(tokenRecipe)
-    }
+	if !onlyWhitespace(l.input[l.start:l.pos]) {
+		l.emit(tokenRecipe)
+	}
 	return lexTopLevel
 }
 

@@ -13,12 +13,13 @@ func expand(input string, vars map[string][]string, expandBackticks bool) []stri
 	expanded := ""
 	var i, j int
 	for i = 0; i < len(input); {
-		j = i + strings.IndexAny(input[i:], "\"'`$\\")
+		j = strings.IndexAny(input[i:], "\"'`$\\")
 
 		if j < 0 {
 			expanded += input[i:]
 			break
 		}
+		j += i
 
 		expanded += input[i:j]
 		c, w := utf8.DecodeRuneInString(input[j:])
@@ -155,8 +156,8 @@ func expandSigil(input string, vars map[string][]string) ([]string, int) {
 		if ok {
 			return varvals, offset
 		} else {
-            return []string{"$" + input[:offset]}, offset
-        }
+			return []string{"$" + input[:offset]}, offset
+		}
 	}
 
 	return []string{"$" + input}, len(input)

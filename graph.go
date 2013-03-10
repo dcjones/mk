@@ -56,7 +56,6 @@ type node struct {
 	flags     nodeFlag          // bitwise combination of node flags
 }
 
-
 // Update a node's timestamp and 'exists' flag.
 func (u *node) updateTimestamp() {
 	info, err := os.Stat(u.name)
@@ -67,7 +66,7 @@ func (u *node) updateTimestamp() {
 	} else {
 		_, ok := err.(*os.PathError)
 		if ok {
-            u.t =   time.Unix(0, 0)
+			u.t = time.Unix(0, 0)
 			u.exists = false
 		} else {
 			mkError(err.Error())
@@ -78,7 +77,7 @@ func (u *node) updateTimestamp() {
 // Create a new node
 func (g *graph) newnode(name string) *node {
 	u := &node{name: name}
-    u.updateTimestamp()
+	u.updateTimestamp()
 	g.nodes[name] = u
 	return u
 }
@@ -110,10 +109,10 @@ func buildgraph(rs *ruleSet, target string) *graph {
 	// keep track of how many times each rule is visited, to avoid cycles.
 	rulecnt := make([]int, len(rs.rules))
 	g.root = applyrules(rs, g, target, rulecnt)
-    g.cyclecheck(g.root)
+	g.cyclecheck(g.root)
 	g.root.flags |= nodeFlagProbable
-    g.vacuous(g.root)
-    g.ambiguous(g.root)
+	g.vacuous(g.root)
+	g.ambiguous(g.root)
 
 	return g
 }
@@ -283,16 +282,16 @@ func (g *graph) vacuous(u *node) bool {
 
 // Check for cycles
 func (g *graph) cyclecheck(u *node) {
-    if u.flags & nodeFlagCycle != 0 && len(u.prereqs) > 0 {
-        mkError(fmt.Sprintf("cycle in the graph detected at target %s", u.name))
-    }
-    u.flags |= nodeFlagCycle
-    for i := range u.prereqs {
-        if u.prereqs[i].v != nil {
-            g.cyclecheck(u.prereqs[i].v)
-        }
-    }
-    u.flags &= ^nodeFlagCycle
+	if u.flags&nodeFlagCycle != 0 && len(u.prereqs) > 0 {
+		mkError(fmt.Sprintf("cycle in the graph detected at target %s", u.name))
+	}
+	u.flags |= nodeFlagCycle
+	for i := range u.prereqs {
+		if u.prereqs[i].v != nil {
+			g.cyclecheck(u.prereqs[i].v)
+		}
+	}
+	u.flags &= ^nodeFlagCycle
 
 }
 
@@ -314,11 +313,11 @@ func (g *graph) ambiguous(u *node) {
 		} else {
 			if le.r.equivRecipe(e.r) {
 				if le.r.ismeta && !e.r.ismeta {
-                    mkPrintRecipe(u.name, le.r.recipe)
+					mkPrintRecipe(u.name, le.r.recipe)
 					le.togo = true
 					le = e
 				} else if !le.r.ismeta && e.r.ismeta {
-                    mkPrintRecipe(u.name, e.r.recipe)
+					mkPrintRecipe(u.name, e.r.recipe)
 					e.togo = true
 					continue
 				}

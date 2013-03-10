@@ -5,10 +5,10 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"regexp"
 	"strings"
-    "io/ioutil"
-    "os"
 )
 
 type parser struct {
@@ -20,10 +20,10 @@ type parser struct {
 
 // Pretty errors.
 func (p *parser) parseError(context string, expected string, found token) {
-    mkPrintError(fmt.Sprintf("%s:%d: syntax error: ", p.name, found.line))
+	mkPrintError(fmt.Sprintf("%s:%d: syntax error: ", p.name, found.line))
 	mkPrintError(fmt.Sprintf("while %s, expected %s but found '%s'.\n",
 		context, expected, found.String()))
-    mkError("")
+	mkError("")
 }
 
 // More basic errors.
@@ -65,7 +65,7 @@ func parseInto(input string, name string, rules *ruleSet) {
 	state := parseTopLevel
 	for t := range tokens {
 		if t.typ == tokenError {
-            p.basicErrorAtLine(l.errmsg, t.line)
+			p.basicErrorAtLine(l.errmsg, t.line)
 			break
 		}
 
@@ -135,7 +135,7 @@ func parsePipeInclude(p *parser, t token) parserStateFun {
 		p.tokenbuf = append(p.tokenbuf, t)
 
 	default:
-        p.parseError("parsing piped include", "a shell command", t)
+		p.parseError("parsing piped include", "a shell command", t)
 	}
 
 	return parsePipeInclude
@@ -145,25 +145,25 @@ func parsePipeInclude(p *parser, t token) parserStateFun {
 func parseRedirInclude(p *parser, t token) parserStateFun {
 	switch t.typ {
 	case tokenNewline:
-        filename := ""
-        for i := range p.tokenbuf {
-            filename += p.tokenbuf[i].val
-        }
-        file, err := os.Open(filename)
-        if err != nil {
-            p.basicErrorAtToken(fmt.Sprintf("cannot open %s", filename), p.tokenbuf[0])
-        }
-        input, _ := ioutil.ReadAll(file)
-        parseInto(string(input), filename, p.rules)
+		filename := ""
+		for i := range p.tokenbuf {
+			filename += p.tokenbuf[i].val
+		}
+		file, err := os.Open(filename)
+		if err != nil {
+			p.basicErrorAtToken(fmt.Sprintf("cannot open %s", filename), p.tokenbuf[0])
+		}
+		input, _ := ioutil.ReadAll(file)
+		parseInto(string(input), filename, p.rules)
 
-        p.clear()
-        return parseTopLevel
+		p.clear()
+		return parseTopLevel
 
 	case tokenWord:
 		p.tokenbuf = append(p.tokenbuf, t)
 
 	default:
-        p.parseError("parsing include", "a file name", t)
+		p.parseError("parsing include", "a file name", t)
 	}
 
 	return parseRedirInclude

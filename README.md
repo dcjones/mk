@@ -52,6 +52,9 @@ improvements.
 
   1. A clean, modern implementation in Go, that doesn't depend on the whole Plan
      9 stack.
+  1. Parallel by default. Modern computers can build more than one C file at a
+     time. Cases that should not be run in parallel are the exception. Use
+     `-p=1` if this is the case.
   1. Use Go regular expressions, which are perl-like. The original mk used plan9
      regex, which few people know or care to learn.
   1. Allow blank lines in recipes. A recipe is any indented block of text, and
@@ -60,8 +63,6 @@ improvements.
   1. Add an 'S' attribute to execute recipes with programs other than sh. This
      way, you don't have to separate your six line python script into its own
      file. Just stick it directly in the mkfile.
-  1. Use sh syntax for command insertion (i.e. backticks) rather than rc shell
-     syntax.
   1. Pretty colors.
 
 # Current State
