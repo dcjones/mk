@@ -21,7 +21,7 @@ var rebuildall bool = false
 var mkMsgMutex sync.Mutex
 
 // The maximum number of times an rule may be applied.
-const maxRuleCnt = 3
+const maxRuleCnt = 1
 
 // Limit the number of recipes executed simultaneously.
 var subprocsAllowed int
@@ -47,13 +47,15 @@ func finishSubproc() {
 
 // Ansi color codes.
 const (
-	colorDefault string = "\033[0m"
-	colorBlack   string = "\033[30m"
-	colorRed     string = "\033[31m"
-	colorGreen   string = "\033[32m"
-	colorYellow  string = "\033[33m"
-	colorBlue    string = "\033[34m"
-	colorMagenta string = "\033[35m"
+	ansiTermDefault   = "\033[0m"
+	ansiTermBlack     = "\033[30m"
+	ansiTermRed       = "\033[31m"
+	ansiTermGreen     = "\033[32m"
+	ansiTermYellow    = "\033[33m"
+	ansiTermBlue      = "\033[34m"
+	ansiTermMagenta   = "\033[35m"
+	ansiTermBright    = "\033[1m"
+	ansiTermUnderline = "\033[4m"
 )
 
 func mk(rs *ruleSet, target string, dryrun bool) {
@@ -61,7 +63,7 @@ func mk(rs *ruleSet, target string, dryrun bool) {
 	if g.root.exists && !rebuildall {
 		return
 	}
-	mkNode(g, g.root)
+    mkNode(g, g.root)
 }
 
 // Build a target in the graph.
@@ -167,21 +169,25 @@ func mkNode(g *graph, u *node) {
 }
 
 func mkError(msg string) {
+	mkPrintError(msg)
+	os.Exit(1)
+}
+
+func mkPrintError(msg string) {
 	if !nocolor {
-		os.Stderr.WriteString(colorRed)
+		os.Stderr.WriteString(ansiTermRed)
 	}
 	fmt.Fprintf(os.Stderr, "mk: %s\n", msg)
 	if !nocolor {
-		os.Stderr.WriteString(colorDefault)
+		os.Stderr.WriteString(ansiTermDefault)
 	}
-	os.Exit(1)
 }
 
 func mkPrintSuccess(msg string) {
 	if nocolor {
 		fmt.Println(msg)
 	} else {
-		fmt.Printf("%s%s%s\n", colorGreen, msg, colorDefault)
+		fmt.Printf("%s%s%s\n", ansiTermGreen, msg, ansiTermDefault)
 	}
 }
 
@@ -190,7 +196,7 @@ func mkPrintMessage(msg string) {
 	if nocolor {
 		fmt.Println(msg)
 	} else {
-		fmt.Printf("%s%s%s\n", colorBlue, msg, colorDefault)
+		fmt.Printf("%s%s%s\n", ansiTermBlue, msg, ansiTermDefault)
 	}
 	mkMsgMutex.Unlock()
 }
@@ -200,14 +206,16 @@ func mkPrintRecipe(target string, recipe string) {
 	if nocolor {
 		fmt.Printf("%s: ", target)
 	} else {
-		fmt.Printf("%s%s%s => %s", colorBlue, target, colorDefault, colorMagenta)
+		fmt.Printf("%s%s%s → %s",
+			ansiTermBlue+ansiTermBright+ansiTermUnderline, target,
+			ansiTermDefault, ansiTermBlue)
 	}
-	printIndented(os.Stdout, recipe, len(target)+4)
+	printIndented(os.Stdout, recipe, len(target)+3)
 	if len(recipe) == 0 {
 		os.Stdout.WriteString("\n")
 	}
 	if !nocolor {
-		os.Stdout.WriteString(colorDefault)
+		os.Stdout.WriteString(ansiTermDefault)
 	}
 	mkMsgMutex.Unlock()
 }
@@ -217,7 +225,7 @@ func main() {
 	flag.StringVar(&mkfilepath, "f", "mkfile", "use the given file as mkfile")
 	flag.BoolVar(&dryrun, "n", false, "print commands without actually executing")
 	flag.BoolVar(&rebuildall, "a", false, "force building of all dependencies")
-	flag.IntVar(&subprocsAllowed, "p", 64, "maximum number of jobs to execute in parallel")
+	flag.IntVar(&subprocsAllowed, "p", 8, "maximum number of jobs to execute in parallel")
 	flag.Parse()
 
 	mkfile, err := os.Open(mkfilepath)
@@ -231,14 +239,16 @@ func main() {
 	targets := flag.Args()
 
 	// build the first non-meta rule in the makefile, if none are given explicitly
-	for i := range rs.rules {
-		if !rs.rules[i].ismeta {
-			for j := range rs.rules[i].targets {
-				targets = append(targets, rs.rules[i].targets[j].spat)
-			}
-			break
-		}
-	}
+    if len(targets) == 0 {
+        for i := range rs.rules {
+            if !rs.rules[i].ismeta {
+                for j := range rs.rules[i].targets {
+                    targets = append(targets, rs.rules[i].targets[j].spat)
+                }
+                break
+            }
+        }
+    }
 
 	if len(targets) == 0 {
 		fmt.Println("mk: nothing to mk")
@@ -247,7 +257,7 @@ func main() {
 
 	// TODO: For multiple targets, we should add a dummy rule that depends on
 	// all let mk handle executing each.
-	for _, target := range targets {
-		mk(rs, target, dryrun)
-	}
+    for _, target := range targets {
+        mk(rs, target, dryrun)
+    }
 }

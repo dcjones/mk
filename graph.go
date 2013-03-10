@@ -19,6 +19,7 @@ type edge struct {
 	v       *node    // node this edge directs to
 	stem    string   // stem matched for meta-rule applications
 	matches []string // regular expression matches
+	togo    bool     // this edge is going to be pruned
 	r       *rule
 }
 
@@ -32,6 +33,15 @@ const (
 	nodeStatusFailed
 )
 
+type nodeFlag int
+
+const (
+	nodeFlagCycle    nodeFlag = 0x0002
+	nodeFlagReady             = 0x0004
+	nodeFlagProbable          = 0x0100
+	nodeFlagVacuous           = 0x0200
+)
+
 // A node in the dependency graph
 type node struct {
 	r         *rule             // rule to be applied
@@ -43,6 +53,7 @@ type node struct {
 	status    nodeStatus        // current state of the node in the build
 	mutex     sync.Mutex        // exclusivity for the status variable
 	listeners []chan nodeStatus // channels to notify of completion
+	flags     nodeFlag          // bitwise combination of node flags
 }
 
 // Create a new node
@@ -52,6 +63,7 @@ func (g *graph) newnode(name string) *node {
 	if err == nil {
 		u.t = info.ModTime()
 		u.exists = true
+		u.flags |= nodeFlagProbable
 	} else {
 		_, ok := err.(*os.PathError)
 		if ok {
@@ -91,6 +103,14 @@ func buildgraph(rs *ruleSet, target string) *graph {
 	// keep track of how many times each rule is visited, to avoid cycles.
 	rulecnt := make([]int, len(rs.rules))
 	g.root = applyrules(rs, g, target, rulecnt)
+    println("cyclecheck")
+    g.cyclecheck(g.root)
+	g.root.flags |= nodeFlagProbable
+    println("vacuous")
+    g.vacuous(g.root)
+    println("ambiguous")
+    g.ambiguous(g.root)
+    println("done")
 
 	return g
 }
@@ -126,6 +146,7 @@ func applyrules(rs *ruleSet, g *graph, target string, rulecnt []int) *node {
 				continue
 			}
 
+			u.flags |= nodeFlagProbable
 			rulecnt[k] += 1
 			if len(r.prereqs) == 0 {
 				u.newedge(nil, r)
@@ -140,7 +161,7 @@ func applyrules(rs *ruleSet, g *graph, target string, rulecnt []int) *node {
 
 	// find applicable metarules
 	for k := range rs.rules {
-		if rulecnt[k] > maxRuleCnt {
+		if rulecnt[k] >= maxRuleCnt {
 			continue
 		}
 
@@ -171,6 +192,7 @@ func applyrules(rs *ruleSet, g *graph, target string, rulecnt []int) *node {
 			}
 
 			rulecnt[k] += 1
+            fmt.Println(rulecnt)
 			if len(r.prereqs) == 0 {
 				e := u.newedge(nil, r)
 				e.stem = stem
@@ -195,4 +217,145 @@ func applyrules(rs *ruleSet, g *graph, target string, rulecnt []int) *node {
 	}
 
 	return u
+}
+
+// Remove edges marked as togo.
+func (g *graph) togo(u *node) {
+	n := 0
+	for i := range u.prereqs {
+		if !u.prereqs[i].togo {
+			n++
+		}
+	}
+	prereqs := make([]*edge, n)
+	j := 0
+	for i := range u.prereqs {
+		if !u.prereqs[i].togo {
+			prereqs[j] = u.prereqs[i]
+			j++
+		}
+	}
+
+	// TODO: We may have to delete nodes from g.nodes, right?
+
+	u.prereqs = prereqs
+}
+
+// Remove vacous children of n.
+func (g *graph) vacuous(u *node) bool {
+	vac := u.flags&nodeFlagProbable == 0
+	if u.flags&nodeFlagReady != 0 {
+		return vac
+	}
+	u.flags |= nodeFlagReady
+
+	for i := range u.prereqs {
+		e := u.prereqs[i]
+		if e.v != nil && g.vacuous(e.v) && e.r.ismeta {
+			e.togo = true
+		} else {
+			vac = false
+		}
+	}
+
+	// if a rule generated edges that are not togo, keep all of its edges
+	for i := range u.prereqs {
+		e := u.prereqs[i]
+		if !e.togo {
+			for j := range u.prereqs {
+				f := u.prereqs[j]
+				if e.r == f.r {
+					f.togo = false
+				}
+			}
+		}
+	}
+
+	g.togo(u)
+	if vac {
+		u.flags |= nodeFlagVacuous
+	}
+
+	return vac
+}
+
+// Check for cycles
+func (g *graph) cyclecheck(u *node) {
+    if u.flags & nodeFlagCycle != 0 && len(u.prereqs) > 0 {
+        mkError(fmt.Sprintf("cycle in the graph detected at target %s", u.name))
+    }
+    u.flags |= nodeFlagCycle
+    for i := range u.prereqs {
+        if u.prereqs[i].v != nil {
+            g.cyclecheck(u.prereqs[i].v)
+        }
+    }
+    u.flags &= ^nodeFlagCycle
+
+}
+
+// Deal with ambiguous rules.
+func (g *graph) ambiguous(u *node) {
+	bad := 0
+	var le *edge
+	for i := range u.prereqs {
+		e := u.prereqs[i]
+
+		if e.v != nil {
+			g.ambiguous(e.v)
+		}
+		if e.r.recipe == "" {
+			continue
+		}
+		if le == nil || le.r == nil {
+			le = e
+		} else {
+			if le.r.equivRecipe(e.r) {
+				if le.r.ismeta && !e.r.ismeta {
+                    mkPrintRecipe(u.name, le.r.recipe)
+					le.togo = true
+					le = e
+				} else if !le.r.ismeta && e.r.ismeta {
+                    mkPrintRecipe(u.name, e.r.recipe)
+					e.togo = true
+					continue
+				}
+			}
+			if le.r.equivRecipe(e.r) {
+				if bad == 0 {
+					mkPrintError(fmt.Sprintf("mk: ambiguous recipes for %sn", u.name))
+					bad = 1
+					g.trace(u.name, le)
+				}
+				g.trace(u.name, e)
+			}
+		}
+	}
+	if bad > 0 {
+		mkError("")
+	}
+	g.togo(u)
+}
+
+// Print a trace of rules, k
+func (g *graph) trace(name string, e *edge) {
+	fmt.Fprintf(os.Stderr, "\t%s", name)
+	for true {
+		prereqname := ""
+		if e.v != nil {
+			prereqname = e.v.name
+		}
+		fmt.Fprintf(os.Stderr, " <-(%s:%d)- %s", e.r.file, e.r.line, prereqname)
+		if e.v != nil {
+			for i := range e.v.prereqs {
+				if e.v.prereqs[i].r.recipe != "" {
+					e = e.v.prereqs[i]
+					continue
+				}
+			}
+			break
+		} else {
+			break
+		}
+	}
 }

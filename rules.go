@@ -58,6 +58,27 @@ type rule struct {
 	command    []string   // command attribute
 	ismeta     bool       // is this a meta rule
 	mutex      sync.Mutex // prevent the rule from being executed multiple times
+	file       string     // file where the rule is defined
+	line       int        // line number on which the rule is defined
+}
+
+// Equivalent recipes.
+func (r1 *rule) equivRecipe(r2 *rule) bool {
+	if r1.recipe != r2.recipe {
+		return false
+	}
+
+	if len(r1.shell) != len(r2.shell) {
+		return false
+	}
+
+	for i := range r1.shell {
+		if r1.shell[i] != r2.shell[i] {
+			return false
+		}
+	}
+
+	return true
 }
 
 // A set of rules.

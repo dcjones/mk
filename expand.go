@@ -20,11 +20,6 @@ func expand(input string, vars map[string][]string, expandBackticks bool) []stri
 			break
 		}
 
-		println("-------------------")
-		println(len(input))
-		println(i)
-		println(j)
-
 		expanded += input[i:j]
 		c, w := utf8.DecodeRuneInString(input[j:])
 		i = j + w

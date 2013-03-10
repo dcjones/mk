@@ -32,7 +32,6 @@ func stripIndentation(s string, mincol int) string {
 				break
 			}
 		}
-
 		output += line[i:]
 
 		if err != nil {
