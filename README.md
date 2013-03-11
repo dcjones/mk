@@ -2,8 +2,8 @@
 # Mk
 
 Mk is a reboot of the Plan 9 mk command, which itself is [a successor to
-make]($). This tool is for anyone who loves make, but hates all its stupid
-bullshit.
+make](http://www.cs.tufts.edu/~nr/cs257/archive/andrew-hume/mk.pdf). This tool
+is for anyone who loves make, but hates all its stupid bullshit.
 
 # Installation
 
@@ -43,7 +43,8 @@ elegant, and powerful. To name a few specifics:
   1. Variables are expanded in recipes only if they are defined. They way you
      usually don't have to escape `$`.
 
-And much more!
+And much more! Read [Maintaining Files on Plan 9 with
+Mk](http://doc.cat-v.org/plan_9/4th_edition/papers/mk) for good overview.
 
 # Improvements over Plan 9 mk
 
