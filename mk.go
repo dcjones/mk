@@ -200,11 +200,11 @@ func mkPrintRecipe(target string, recipe string) {
 	if nocolor {
 		fmt.Printf("%s: ", target)
 	} else {
-		fmt.Printf("%s%s%s → %s",
+		fmt.Printf("%s%s%s →\n%s",
 			ansiTermBlue+ansiTermBright+ansiTermUnderline, target,
 			ansiTermDefault, ansiTermBlue)
 	}
-	printIndented(os.Stdout, recipe, len(target)+3)
+	printIndented(os.Stdout, recipe, 4)
 	if len(recipe) == 0 {
 		os.Stdout.WriteString("\n")
 	}

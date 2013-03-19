@@ -46,19 +46,15 @@ func stripIndentation(s string, mincol int) string {
 func printIndented(out io.Writer, s string, ind int) {
 	indentation := strings.Repeat(" ", ind)
 	reader := bufio.NewReader(strings.NewReader(s))
-	firstline := true
 	for {
 		line, err := reader.ReadString('\n')
 		if len(line) > 0 {
-			if !firstline {
-				io.WriteString(out, indentation)
-			}
+			io.WriteString(out, indentation)
 			io.WriteString(out, line)
 		}
 		if err != nil {
 			break
 		}
-		firstline = false
 	}
 }
 
