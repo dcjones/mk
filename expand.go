@@ -234,9 +234,10 @@ func expandSuffixes(input string, stem string) string {
 		}
 
 		c, w := utf8.DecodeRuneInString(input[j:])
+		expanded = append(expanded, input[i:j]...)
 		if c == '%' {
 			expanded = append(expanded, stem...)
-			i += w
+			i = j + w
 		} else {
 			j += w
 			c, w := utf8.DecodeRuneInString(input[j:])

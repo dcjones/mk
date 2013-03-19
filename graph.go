@@ -72,6 +72,10 @@ func (u *node) updateTimestamp() {
 			mkError(err.Error())
 		}
 	}
+
+	if rebuildall {
+		u.flags |= nodeFlagProbable
+	}
 }
 
 // Create a new node

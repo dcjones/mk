@@ -97,7 +97,7 @@ func mkNode(g *graph, u *node) {
 	if len(u.prereqs) == 0 {
 		if !(u.r != nil && u.r.attributes.virtual) && !u.exists {
 			wd, _ := os.Getwd()
-			mkError(fmt.Sprintf("don't know how to make %s in %s", u.name, wd))
+			mkError(fmt.Sprintf("don't know how to make %s in %s\n", u.name, wd))
 		}
 		return
 	}
@@ -200,11 +200,11 @@ func mkPrintRecipe(target string, recipe string) {
 	if nocolor {
 		fmt.Printf("%s: ", target)
 	} else {
-		fmt.Printf("%s%s%s →\n%s",
+		fmt.Printf("%s%s%s → %s",
 			ansiTermBlue+ansiTermBright+ansiTermUnderline, target,
 			ansiTermDefault, ansiTermBlue)
 	}
-	printIndented(os.Stdout, recipe, 4)
+	printIndented(os.Stdout, recipe, len(target)+3)
 	if len(recipe) == 0 {
 		os.Stdout.WriteString("\n")
 	}
