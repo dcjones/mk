@@ -315,7 +315,7 @@ func (g *graph) ambiguous(u *node) {
 		if le == nil || le.r == nil {
 			le = e
 		} else {
-			if le.r.equivRecipe(e.r) {
+			if !le.r.equivRecipe(e.r) {
 				if le.r.ismeta && !e.r.ismeta {
 					mkPrintRecipe(u.name, le.r.recipe)
 					le.togo = true
@@ -326,9 +326,9 @@ func (g *graph) ambiguous(u *node) {
 					continue
 				}
 			}
-			if le.r.equivRecipe(e.r) {
+			if !le.r.equivRecipe(e.r) {
 				if bad == 0 {
-					mkPrintError(fmt.Sprintf("mk: ambiguous recipes for %sn", u.name))
+					mkPrintError(fmt.Sprintf("mk: ambiguous recipes for %s\n", u.name))
 					bad = 1
 					g.trace(u.name, le)
 				}
