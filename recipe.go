@@ -63,7 +63,7 @@ func printIndented(out io.Writer, s string, ind int) {
 }
 
 // Execute a recipe.
-func dorecipe(target string, u *node, e *edge) bool {
+func dorecipe(target string, u *node, e *edge, dryrun bool) bool {
 	vars := make(map[string][]string)
 	vars["target"] = []string{target}
 	if e.r.ismeta {

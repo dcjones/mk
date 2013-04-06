@@ -1,18 +1,17 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"sync"
 )
 
 // True if messages should be printed without fancy colors.
 var nocolor bool = false
-
-// True if we are no actualyl executing any recipes or updating any timestamps.
-var dryrun bool = false
 
 // True if we are ignoring timestamps and rebuilding everything.
 var rebuildall bool = false
@@ -58,20 +57,12 @@ const (
 	ansiTermUnderline = "\033[4m"
 )
 
-func mk(rs *ruleSet, target string, dryrun bool) {
-	g := buildgraph(rs, target)
-	if g.root.exists && !rebuildall {
-		return
-	}
-	mkNode(g, g.root)
-}
-
 // Build a target in the graph.
 //
 // This selects an appropriate rule (edge) and builds all prerequisites
 // concurrently.
 //
-func mkNode(g *graph, u *node) {
+func mkNode(g *graph, u *node, dryrun bool) {
 	// try to claim on this node
 	u.mutex.Lock()
 	if u.status != nodeStatusReady {
@@ -129,10 +120,10 @@ func mkNode(g *graph, u *node) {
 		prereqs[i].mutex.Lock()
 		// needs to be built?
 		u.updateTimestamp()
-		if !prereqs[i].exists || e.r.attributes.virtual || rebuildall || (u.exists && u.t.Before(prereqs[i].t)) {
+		if !prereqs[i].exists || rebuildall || (u.exists && u.t.Before(prereqs[i].t)) {
 			switch prereqs[i].status {
 			case nodeStatusReady:
-				go mkNode(g, prereqs[i])
+				go mkNode(g, prereqs[i], dryrun)
 				fallthrough
 			case nodeStatusStarted:
 				prereqs[i].listeners = append(prereqs[i].listeners, prereqstat)
@@ -155,7 +146,7 @@ func mkNode(g *graph, u *node) {
 	// execute the recipe, unless the prereqs failed
 	if finalstatus != nodeStatusFailed && len(e.r.recipe) > 0 {
 		reserveSubproc()
-		if !dorecipe(u.name, u, e) {
+		if !dorecipe(u.name, u, e, dryrun) {
 			finalstatus = nodeStatusFailed
 		}
 		finishSubproc()
@@ -216,10 +207,14 @@ func mkPrintRecipe(target string, recipe string) {
 
 func main() {
 	var mkfilepath string
+	var interactive bool
+	var dryrun bool
+
 	flag.StringVar(&mkfilepath, "f", "mkfile", "use the given file as mkfile")
 	flag.BoolVar(&dryrun, "n", false, "print commands without actually executing")
 	flag.BoolVar(&rebuildall, "a", false, "force building of all dependencies")
 	flag.IntVar(&subprocsAllowed, "p", 8, "maximum number of jobs to execute in parallel")
+	flag.BoolVar(&interactive, "i", false, "prompt before executing rules")
 	flag.Parse()
 
 	mkfile, err := os.Open(mkfilepath)
@@ -249,9 +244,32 @@ func main() {
 		return
 	}
 
-	// TODO: For multiple targets, we should add a dummy rule that depends on
-	// all let mk handle executing each.
-	for _, target := range targets {
-		mk(rs, target, dryrun)
+	// Create a dummy virtula rule that depends on every target
+	root := rule{}
+	root.targets = []pattern{pattern{false, "", nil}}
+	root.attributes = attribSet{false, false, false, false, false, false, false, true}
+	root.prereqs = targets
+	rs.add(root)
+
+	if interactive {
+		g := buildgraph(rs, "")
+		mkNode(g, g.root, true)
+		fmt.Print("Proceed? ")
+		in := bufio.NewReader(os.Stdin)
+		for {
+			c, _, err := in.ReadRune()
+			if err != nil {
+				return
+			} else if strings.IndexRune(" \n\t\r", c) >= 0 {
+				continue
+			} else if c == 'y' {
+				break
+			} else {
+				return
+			}
+		}
 	}
+
+	g := buildgraph(rs, "")
+	mkNode(g, g.root, dryrun)
 }
