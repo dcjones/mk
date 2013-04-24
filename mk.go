@@ -90,6 +90,7 @@ func mkNode(g *graph, u *node, dryrun bool) {
 			wd, _ := os.Getwd()
 			mkError(fmt.Sprintf("don't know how to make %s in %s\n", u.name, wd))
 		}
+		finalstatus = nodeStatusNop
 		return
 	}
 
@@ -118,17 +119,13 @@ func mkNode(g *graph, u *node, dryrun bool) {
 	e.r.mutex.Lock()
 	for i := range prereqs {
 		prereqs[i].mutex.Lock()
-		// needs to be built?
-		u.updateTimestamp()
-		if !prereqs[i].exists || rebuildall || (u.exists && u.t.Before(prereqs[i].t)) {
-			switch prereqs[i].status {
-			case nodeStatusReady:
-				go mkNode(g, prereqs[i], dryrun)
-				fallthrough
-			case nodeStatusStarted:
-				prereqs[i].listeners = append(prereqs[i].listeners, prereqstat)
-				pending++
-			}
+		switch prereqs[i].status {
+		case nodeStatusReady:
+			go mkNode(g, prereqs[i], dryrun)
+			fallthrough
+		case nodeStatusStarted:
+			prereqs[i].listeners = append(prereqs[i].listeners, prereqstat)
+			pending++
 		}
 		prereqs[i].mutex.Unlock()
 	}
@@ -143,13 +140,36 @@ func mkNode(g *graph, u *node, dryrun bool) {
 		}
 	}
 
+	uptodate := true
+	if !e.r.attributes.virtual {
+		u.updateTimestamp()
+		if u.exists {
+			for i := range prereqs {
+				if u.t.Before(prereqs[i].t) || prereqs[i].status == nodeStatusDone {
+					uptodate = false
+				}
+			}
+		} else {
+			uptodate = false
+		}
+	} else {
+		uptodate = false
+	}
+
+	if rebuildall {
+		uptodate = false
+	}
+
 	// execute the recipe, unless the prereqs failed
-	if finalstatus != nodeStatusFailed && len(e.r.recipe) > 0 {
+	if !uptodate && finalstatus != nodeStatusFailed && len(e.r.recipe) > 0 {
 		reserveSubproc()
 		if !dorecipe(u.name, u, e, dryrun) {
 			finalstatus = nodeStatusFailed
 		}
+		u.updateTimestamp()
 		finishSubproc()
+	} else if finalstatus != nodeStatusFailed {
+		finalstatus = nodeStatusNop
 	}
 }
 

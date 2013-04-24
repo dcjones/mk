@@ -29,6 +29,7 @@ type nodeStatus int
 const (
 	nodeStatusReady nodeStatus = iota
 	nodeStatusStarted
+	nodeStatusNop
 	nodeStatusDone
 	nodeStatusFailed
 )
