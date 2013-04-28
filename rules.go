@@ -189,10 +189,24 @@ func (rs *ruleSet) executeAssignment(ts []token) *assignmentError {
 			ts[0]}
 	}
 
+	// interpret tokens in assignment context
+	input := make([]string, 0)
+	for i := 1; i < len(ts); i++ {
+		if ts[i].typ != tokenWord || (i > 1 && ts[i-1].typ != tokenWord) {
+			if len(input) == 0 {
+				input = append(input, ts[i].val)
+			} else {
+				input[len(input)-1] += ts[i].val
+			}
+		} else {
+			input = append(input, ts[i].val)
+		}
+	}
+
 	// expanded variables
 	vals := make([]string, 0)
-	for i := 1; i < len(ts); i++ {
-		vals = append(vals, expand(ts[i].val, rs.vars, true)...)
+	for i := 0; i < len(input); i++ {
+		vals = append(vals, expand(input[i], rs.vars, true)...)
 	}
 
 	rs.vars[assignee] = vals

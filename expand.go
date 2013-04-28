@@ -85,9 +85,6 @@ func expandDoubleQuoted(input string, vars map[string][]string, expandBackticks 
 			break
 		}
 
-		_, w := utf8.DecodeRuneInString(input[j:])
-		j += w
-
 		c, w := utf8.DecodeRuneInString(input[j:])
 		j += w
 
