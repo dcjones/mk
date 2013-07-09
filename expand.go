@@ -259,7 +259,7 @@ func expandBackQuoted(input string, vars map[string][]string) (string, int) {
 	}
 
 	// TODO: handle errors
-	output, _ := subprocess("sh", nil, input[:j], false, false, true)
+	output, _ := subprocess("sh", nil, input[:j], true)
 	return output, (j + 1)
 }
 

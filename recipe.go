@@ -109,65 +109,98 @@ func dorecipe(target string, u *node, e *edge, dryrun bool) bool {
 		sh,
 		args,
 		input,
-		true,
-		true,
 		false)
 
 	return success
 }
 
-// A monolithic function for executing subprocesses
+// Execute a subprocess (typically a recipe).
+//
+// Args:
+//   program: Program path or name located in PATH
+//   input: String piped into the program's stdin
+//   capture_out: If true, capture and return the program's stdout rather than echoing it.
+//
+// Returns
+//   (output, success)
+//   output is an empty string of catputer_out is false, or the collected output from the profram is true.
+//
+//   success is true if the exit code was 0 and false otherwise
+//
 func subprocess(program string,
 	args []string,
 	input string,
-	echo_out bool,
-	echo_err bool,
 	capture_out bool) (string, bool) {
-	cmd := exec.Command(program, args...)
-
-	if echo_out {
-		cmdout, err := cmd.StdoutPipe()
-		if err == nil {
-			go io.Copy(os.Stdout, cmdout)
-		}
-	}
-
-	if echo_err {
-		cmderr, err := cmd.StderrPipe()
-		if err == nil {
-			go io.Copy(os.Stderr, cmderr)
-		}
-	}
-
-	if len(input) > 0 {
-		cmdin, err := cmd.StdinPipe()
-		if err == nil {
-			go func() { cmdin.Write([]byte(input)); cmdin.Close() }()
-		}
-	}
-
-	output := ""
-	var err error
-	if capture_out {
-		var outbytes []byte
-		outbytes, err = cmd.Output()
-		output = string(outbytes)
-		if len(output) > 0 && output[len(output)-1] == '\n' {
-			output = output[:len(output)-1]
-		}
-	} else {
-		err = cmd.Run()
-	}
-	success := true
-
+	program_path, err := exec.LookPath(program)
 	if err != nil {
-		exiterr, ok := err.(*exec.ExitError)
-		if ok {
-			success = exiterr.ProcessState.Success()
-		} else {
+		log.Fatal(err)
+	}
+
+	proc_args := []string{program}
+	proc_args = append(proc_args, args...)
+
+	stdin_pipe_read, stdin_pipe_write, err := os.Pipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	attr := os.ProcAttr{Files: []*os.File{stdin_pipe_read, os.Stdout, os.Stderr}}
+
+	output := make([]byte, 0)
+	capture_done := make(chan bool)
+	if capture_out {
+		stdout_pipe_read, stdout_pipe_write, err := os.Pipe()
+		if err != nil {
 			log.Fatal(err)
 		}
+
+		attr.Files[1] = stdout_pipe_write
+
+		go func() {
+			buf := make([]byte, 1024)
+			for {
+				n, err := stdout_pipe_read.Read(buf)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				if n == 0 {
+					break
+				}
+
+				output = append(output, buf[:n]...)
+			}
+
+			capture_done <- true
+		}()
 	}
 
-	return output, success
+	proc, err := os.StartProcess(program_path, proc_args, &attr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	go func() {
+		_, err := stdin_pipe_write.WriteString(input)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		err = stdin_pipe_write.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	state, err := proc.Wait()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// wait until stdout copying in finished
+	if capture_out {
+		<-capture_done
+	}
+
+	return string(output), state.Success()
 }
