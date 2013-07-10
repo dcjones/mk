@@ -129,7 +129,6 @@ func mkNode(g *graph, u *node, dryrun bool) {
 		}
 		prereqs[i].mutex.Unlock()
 	}
-	e.r.mutex.Unlock()
 
 	// wait until all the prereqs are built
 	for pending > 0 {
@@ -171,6 +170,7 @@ func mkNode(g *graph, u *node, dryrun bool) {
 	} else if finalstatus != nodeStatusFailed {
 		finalstatus = nodeStatusNop
 	}
+	e.r.mutex.Unlock()
 }
 
 func mkError(msg string) {
