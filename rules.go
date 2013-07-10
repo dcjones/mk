@@ -20,6 +20,7 @@ type attribSet struct {
 	regex           bool // regular expression meta-rule
 	update          bool // treat the targets as if they were updated
 	virtual         bool // rule is virtual (does not match files)
+	exclusive       bool // don't execute concurrently with any other rule
 }
 
 // Error parsing an attribute
@@ -113,6 +114,8 @@ func (r *rule) parseAttribs(inputs []string) *attribError {
 				r.attributes.update = true
 			case 'V':
 				r.attributes.virtual = true
+			case 'X':
+				r.attributes.exclusive = true
 			case 'P':
 				if pos+w < len(input) {
 					r.command = append(r.command, input[pos+w:])

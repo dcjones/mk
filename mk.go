@@ -24,24 +24,54 @@ const maxRuleCnt = 1
 
 // Limit the number of recipes executed simultaneously.
 var subprocsAllowed int
-var subprocsAllowedCond *sync.Cond = sync.NewCond(&sync.Mutex{})
+
+// Current subprocesses being executed
+var subprocsRunning int
+
+// Wakeup on a free subprocess slot.
+var subprocsRunningCond *sync.Cond = sync.NewCond(&sync.Mutex{})
+
+// Prevent more than one recipe at a time from trying to take over
+var exclusiveSubproc = sync.Mutex{}
 
 // Wait until there is an available subprocess slot.
 func reserveSubproc() {
-	subprocsAllowedCond.L.Lock()
-	for subprocsAllowed == 0 {
-		subprocsAllowedCond.Wait()
+	subprocsRunningCond.L.Lock()
+	for subprocsRunning >= subprocsAllowed {
+		subprocsRunningCond.Wait()
 	}
-	subprocsAllowed--
-	subprocsAllowedCond.L.Unlock()
+	subprocsRunning++
+	subprocsRunningCond.L.Unlock()
 }
 
 // Free up another subprocess to run.
 func finishSubproc() {
-	subprocsAllowedCond.L.Lock()
-	subprocsAllowed++
-	subprocsAllowedCond.Signal()
-	subprocsAllowedCond.L.Unlock()
+	subprocsRunningCond.L.Lock()
+	subprocsRunning--
+	subprocsRunningCond.Signal()
+	subprocsRunningCond.L.Unlock()
+}
+
+// Make everyone wait while we
+func reserveExclusiveSubproc() {
+	exclusiveSubproc.Lock()
+	// Wait until everything is done running
+	stolen_subprocs := 0
+	subprocsRunningCond.L.Lock()
+	stolen_subprocs = subprocsAllowed - subprocsRunning
+	subprocsRunning = subprocsAllowed
+	for stolen_subprocs < subprocsAllowed {
+		subprocsRunningCond.Wait()
+		stolen_subprocs += subprocsAllowed - subprocsRunning
+		subprocsRunning = subprocsAllowed
+	}
+}
+
+func finishExclusiveSubproc() {
+	subprocsRunning = 0
+	subprocsRunningCond.Broadcast()
+	subprocsRunningCond.L.Unlock()
+	exclusiveSubproc.Unlock()
 }
 
 // Ansi color codes.
@@ -161,12 +191,22 @@ func mkNode(g *graph, u *node, dryrun bool) {
 
 	// execute the recipe, unless the prereqs failed
 	if !uptodate && finalstatus != nodeStatusFailed && len(e.r.recipe) > 0 {
-		reserveSubproc()
+		if e.r.attributes.exclusive {
+			reserveExclusiveSubproc()
+		} else {
+			reserveSubproc()
+		}
+
 		if !dorecipe(u.name, u, e, dryrun) {
 			finalstatus = nodeStatusFailed
 		}
 		u.updateTimestamp()
-		finishSubproc()
+
+		if e.r.attributes.exclusive {
+			finishExclusiveSubproc()
+		} else {
+			finishSubproc()
+		}
 	} else if finalstatus != nodeStatusFailed {
 		finalstatus = nodeStatusNop
 	}
@@ -267,7 +307,7 @@ func main() {
 	// Create a dummy virtula rule that depends on every target
 	root := rule{}
 	root.targets = []pattern{pattern{false, "", nil}}
-	root.attributes = attribSet{false, false, false, false, false, false, false, true}
+	root.attributes = attribSet{false, false, false, false, false, false, false, true, false}
 	root.prereqs = targets
 	rs.add(root)
 

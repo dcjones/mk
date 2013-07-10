@@ -328,7 +328,7 @@ func parseRecipe(p *parser, t token) parserStateFun {
 					patstr := fmt.Sprintf("^%s(.*)%s$", left, right)
 					rpat, err := regexp.Compile(patstr)
 					if err != nil {
-						msg := fmt.Sprintf("error compiling suffix rule. This is a bug.", err)
+						msg := fmt.Sprintf("error compiling suffix rule. This is a bug. Error: %s", err)
 						p.basicErrorAtToken(msg, p.tokenbuf[k])
 					}
 					r.targets[len(r.targets)-1].rpat = rpat
