@@ -98,7 +98,7 @@ func mkNodePrereqs(g *graph, u *node, e *edge, prereqs []*node, dryrun bool,
 	for i := range prereqs {
 		prereqs[i].mutex.Lock()
 		switch prereqs[i].status {
-		case nodeStatusReady:
+		case nodeStatusReady, nodeStatusNop:
 			go mkNode(g, prereqs[i], dryrun, required)
 			fallthrough
 		case nodeStatusStarted:
@@ -134,7 +134,7 @@ func mkNodePrereqs(g *graph, u *node, e *edge, prereqs []*node, dryrun bool,
 func mkNode(g *graph, u *node, dryrun bool, required bool) {
 	// try to claim on this node
 	u.mutex.Lock()
-	if u.status != nodeStatusReady {
+	if u.status != nodeStatusReady && u.status != nodeStatusNop {
 		u.mutex.Unlock()
 		return
 	} else {
@@ -151,6 +151,7 @@ func mkNode(g *graph, u *node, dryrun bool, required bool) {
 		for i := range u.listeners {
 			u.listeners[i] <- u.status
 		}
+		u.listeners = u.listeners[0:0]
 	}()
 
 	// there's no fucking rules, dude
@@ -188,7 +189,9 @@ func mkNode(g *graph, u *node, dryrun bool, required bool) {
 	uptodate := true
 	if !e.r.attributes.virtual {
 		u.updateTimestamp()
-		if u.exists || required {
+		if !u.exists && required {
+			uptodate = false
+		} else if u.exists || required {
 			for i := range prereqs {
 				if u.t.Before(prereqs[i].t) || prereqs[i].status == nodeStatusDone {
 					uptodate = false

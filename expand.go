@@ -126,8 +126,8 @@ func expandSigil(input string, vars map[string][]string) ([]string, int) {
 			return []string{"$" + input}, len(input)
 		}
 
-		varname = input[w:j]
-		offset = j + 1
+		varname = input[w : w+j]
+		offset = w + j + 1
 	} else {
 		// try to match a variable name
 		i := 0
