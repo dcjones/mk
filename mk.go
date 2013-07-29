@@ -87,12 +87,51 @@ const (
 	ansiTermUnderline = "\033[4m"
 )
 
+// Build a node's prereqs. Block until completed.
+//
+func mkNodePrereqs(g *graph, u *node, e *edge, prereqs []*node, dryrun bool,
+	required bool) nodeStatus {
+	prereqstat := make(chan nodeStatus)
+	pending := 0
+
+	// build prereqs that need building
+	for i := range prereqs {
+		prereqs[i].mutex.Lock()
+		switch prereqs[i].status {
+		case nodeStatusReady:
+			go mkNode(g, prereqs[i], dryrun, required)
+			fallthrough
+		case nodeStatusStarted:
+			prereqs[i].listeners = append(prereqs[i].listeners, prereqstat)
+			pending++
+		}
+		prereqs[i].mutex.Unlock()
+	}
+
+	// wait until all the prereqs are built
+	status := nodeStatusDone
+	for pending > 0 {
+		s := <-prereqstat
+		pending--
+		if s == nodeStatusFailed {
+			status = nodeStatusFailed
+		}
+	}
+	return status
+}
+
 // Build a target in the graph.
 //
 // This selects an appropriate rule (edge) and builds all prerequisites
 // concurrently.
 //
-func mkNode(g *graph, u *node, dryrun bool) {
+// Args:
+//  g: Graph in which the node lives.
+//  u: Node to (possibly) build.
+//  dryrun: Don't actually build anything, just pretend.
+//  required: Avoid building this node, unless its prereqs are out of date.
+//
+func mkNode(g *graph, u *node, dryrun bool, required bool) {
 	// try to claim on this node
 	u.mutex.Lock()
 	if u.status != nodeStatusReady {
@@ -142,43 +181,20 @@ func mkNode(g *graph, u *node, dryrun bool) {
 		mkError(fmt.Sprintf("don't know how to make %s in %s", u.name, wd))
 	}
 
-	prereqstat := make(chan nodeStatus)
-	pending := 0
-
-	// build prereqs that need building
 	e.r.mutex.Lock()
-	for i := range prereqs {
-		prereqs[i].mutex.Lock()
-		switch prereqs[i].status {
-		case nodeStatusReady:
-			go mkNode(g, prereqs[i], dryrun)
-			fallthrough
-		case nodeStatusStarted:
-			prereqs[i].listeners = append(prereqs[i].listeners, prereqstat)
-			pending++
-		}
-		prereqs[i].mutex.Unlock()
-	}
-
-	// wait until all the prereqs are built
-	for pending > 0 {
-		s := <-prereqstat
-		pending--
-		if s == nodeStatusFailed {
-			finalstatus = nodeStatusFailed
-		}
-	}
+	prereqs_required := required && (e.r.attributes.virtual || !u.exists)
+	mkNodePrereqs(g, u, e, prereqs, dryrun, prereqs_required)
 
 	uptodate := true
 	if !e.r.attributes.virtual {
 		u.updateTimestamp()
-		if u.exists {
+		if u.exists || required {
 			for i := range prereqs {
 				if u.t.Before(prereqs[i].t) || prereqs[i].status == nodeStatusDone {
 					uptodate = false
 				}
 			}
-		} else {
+		} else if required {
 			uptodate = false
 		}
 	} else {
@@ -187,6 +203,11 @@ func mkNode(g *graph, u *node, dryrun bool) {
 
 	if rebuildall {
 		uptodate = false
+	}
+
+	// make another pass on the prereqs, since we know we need them now
+	if !uptodate {
+		mkNodePrereqs(g, u, e, prereqs, dryrun, true)
 	}
 
 	// execute the recipe, unless the prereqs failed
@@ -313,7 +334,7 @@ func main() {
 
 	if interactive {
 		g := buildgraph(rs, "")
-		mkNode(g, g.root, true)
+		mkNode(g, g.root, true, true)
 		fmt.Print("Proceed? ")
 		in := bufio.NewReader(os.Stdin)
 		for {
@@ -331,5 +352,5 @@ func main() {
 	}
 
 	g := buildgraph(rs, "")
-	mkNode(g, g.root, dryrun)
+	mkNode(g, g.root, dryrun, true)
 }
