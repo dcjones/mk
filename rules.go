@@ -7,7 +7,6 @@ package main
 import (
 	"fmt"
 	"regexp"
-	"sync"
 	"unicode/utf8"
 )
 
@@ -58,7 +57,6 @@ type rule struct {
 	recipe     string     // recipe source
 	command    []string   // command attribute
 	ismeta     bool       // is this a meta rule
-	mutex      sync.Mutex // prevent the rule from being executed multiple times
 	file       string     // file where the rule is defined
 	line       int        // line number on which the rule is defined
 }

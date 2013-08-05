@@ -147,11 +147,11 @@ func mkNode(g *graph, u *node, dryrun bool, required bool) {
 	defer func() {
 		u.mutex.Lock()
 		u.status = finalstatus
-		u.mutex.Unlock()
 		for i := range u.listeners {
 			u.listeners[i] <- u.status
 		}
 		u.listeners = u.listeners[0:0]
+		u.mutex.Unlock()
 	}()
 
 	// there's no fucking rules, dude
@@ -182,7 +182,6 @@ func mkNode(g *graph, u *node, dryrun bool, required bool) {
 		mkError(fmt.Sprintf("don't know how to make %s in %s", u.name, wd))
 	}
 
-	e.r.mutex.Lock()
 	prereqs_required := required && (e.r.attributes.virtual || !u.exists)
 	mkNodePrereqs(g, u, e, prereqs, dryrun, prereqs_required)
 
@@ -234,7 +233,6 @@ func mkNode(g *graph, u *node, dryrun bool, required bool) {
 	} else if finalstatus != nodeStatusFailed {
 		finalstatus = nodeStatusNop
 	}
-	e.r.mutex.Unlock()
 }
 
 func mkError(msg string) {
