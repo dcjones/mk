@@ -160,12 +160,11 @@ func subprocess(program string,
 			buf := make([]byte, 1024)
 			for {
 				n, err := stdout_pipe_read.Read(buf)
-				if err != nil {
-					log.Fatal(err)
-				}
 
-				if n == 0 {
+				if err == io.EOF && n == 0 {
 					break
+				} else if err != nil {
+					log.Fatal(err)
 				}
 
 				output = append(output, buf[:n]...)
@@ -193,6 +192,11 @@ func subprocess(program string,
 	}()
 
 	state, err := proc.Wait()
+
+	if attr.Files[1] != os.Stdout {
+		attr.Files[1].Close()
+	}
+
 	if err != nil {
 		log.Fatal(err)
 	}

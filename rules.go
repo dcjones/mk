@@ -50,15 +50,15 @@ func (p *pattern) match(target string) []string {
 
 // A single rule.
 type rule struct {
-	targets    []pattern  // non-empty array of targets
-	attributes attribSet  // rule attributes
-	prereqs    []string   // possibly empty prerequesites
-	shell      []string   // command used to execute the recipe
-	recipe     string     // recipe source
-	command    []string   // command attribute
-	ismeta     bool       // is this a meta rule
-	file       string     // file where the rule is defined
-	line       int        // line number on which the rule is defined
+	targets    []pattern // non-empty array of targets
+	attributes attribSet // rule attributes
+	prereqs    []string  // possibly empty prerequesites
+	shell      []string  // command used to execute the recipe
+	recipe     string    // recipe source
+	command    []string  // command attribute
+	ismeta     bool      // is this a meta rule
+	file       string    // file where the rule is defined
+	line       int       // line number on which the rule is defined
 }
 
 // Equivalent recipes.
