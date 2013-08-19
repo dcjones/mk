@@ -188,6 +188,14 @@ func (l *lexer) acceptUntil(invalid string) {
 	}
 }
 
+// Accept until something from the given string is encountered, or the end of th
+// file
+func (l *lexer) acceptUntilOrEof(invalid string) {
+	for l.pos < len(l.input) && strings.IndexRune(invalid, l.peek()) < 0 {
+		l.next()
+	}
+}
+
 // Skip characters from the valid string until the next is not.
 func (l *lexer) skipRun(valid string) int {
 	prevpos := l.pos
@@ -343,7 +351,7 @@ func lexSingleQuotedWord(l *lexer) lexerStateFun {
 
 func lexRecipe(l *lexer) lexerStateFun {
 	for {
-		l.acceptUntil("\n")
+		l.acceptUntilOrEof("\n")
 		l.acceptRun(" \t\n\r")
 		if !l.indented || l.col == 0 {
 			break
