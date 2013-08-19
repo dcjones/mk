@@ -42,12 +42,18 @@ func expand(input string, vars map[string][]string, expandBackticks bool) []stri
 
 		case '`':
 			if expandBackticks {
-				out, off = expandBackQuoted(input[i:], vars)
+				var outparts []string
+				outparts, off = expandBackQuoted(input[i:], vars)
+				if len(outparts) > 0 {
+					outparts[0] = expanded + outparts[0]
+					expanded = outparts[len(outparts)-1]
+					parts = append(parts, outparts[:len(outparts)-1]...)
+				}
 			} else {
 				out = input
 				off = len(input)
+				expanded += out
 			}
-			expanded += out
 
 		case '$':
 			var outparts []string
@@ -251,46 +257,21 @@ func expandSuffixes(input string, stem string) string {
 // TODO: expand RegexpRefs
 
 // Expand a backtick quoted string, by executing the contents.
-func expandBackQuoted(input string, vars map[string][]string) (string, int) {
+func expandBackQuoted(input string, vars map[string][]string) ([]string, int) {
 	// TODO: expand sigils?
 	j := strings.Index(input, "`")
 	if j < 0 {
-		return input, len(input)
+		return []string{input}, len(input)
 	}
 
 	// TODO: handle errors
 	output, _ := subprocess("sh", nil, input[:j], true)
-	return output, (j + 1)
+
+	parts := make([]string, 0)
+	_, tokens := lexWords(output)
+	for t := range tokens {
+		parts = append(parts, t.val)
+	}
+
+	return parts, (j + 1)
 }
-
-// Split a string on whitespace taking into account escaping and quoting.
-//func splitQuoted(input string) []string {
-//parts := make([]string, 0)
-//var i, j int
-//i = 0
-//for {
-//// skip all unescaped whitespace
-//for i < len(input) {
-//c, w := utf8.DecodeRuneInString(input[i:])
-//if strings.IndexRune(" \t", c) < 0 {
-//break
-//}
-//i += w
-//}
-
-//if i >= len(input) {
-//break
-//}
-
-//// Ugh. Will this take into account quoting in variables?
-
-//switch c {
-//case '"':
-//case '\'':
-//default:
-
-//}
-//}
-
-//return parts
-//}

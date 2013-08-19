@@ -69,15 +69,16 @@ func (t *token) String() string {
 }
 
 type lexer struct {
-	input    string     // input string to be lexed
-	output   chan token // channel on which tokens are sent
-	start    int        // token beginning
-	startcol int        // column on which the token begins
-	pos      int        // position within input
-	line     int        // line within input
-	col      int        // column within input
-	errmsg   string     // set to an appropriate error message when necessary
-	indented bool       // true if the only whitespace so far on this line
+	input     string     // input string to be lexed
+	output    chan token // channel on which tokens are sent
+	start     int        // token beginning
+	startcol  int        // column on which the token begins
+	pos       int        // position within input
+	line      int        // line within input
+	col       int        // column within input
+	errmsg    string     // set to an appropriate error message when necessary
+	indented  bool       // true if the only whitespace so far on this line
+	barewords bool       // lex only a sequence of words
 }
 
 // A lexerStateFun is simultaneously the the state of the lexer and the next
@@ -214,6 +215,12 @@ func lex(input string) (*lexer, chan token) {
 	return l, l.output
 }
 
+func lexWords(input string) (*lexer, chan token) {
+	l := &lexer{input: input, output: make(chan token), line: 1, col: 0, indented: true, barewords: true}
+	go l.run()
+	return l, l.output
+}
+
 func (l *lexer) run() {
 	for state := lexTopLevel; state != nil; {
 		state = state(l)
@@ -221,17 +228,17 @@ func (l *lexer) run() {
 	close(l.output)
 }
 
-// What do we need?
-// A function that consumes non-newline whitespace.
-// A way of determining if the current line might be a recipe.
-
 func lexTopLevel(l *lexer) lexerStateFun {
 	for {
 		l.skipRun(" \t\r")
 		// emit a newline token if we are ending a non-empty line.
 		if l.peek() == '\n' && !l.indented {
 			l.next()
-			l.emit(tokenNewline)
+			if l.barewords {
+				return nil
+			} else {
+				l.emit(tokenNewline)
+			}
 		}
 		l.skipRun(" \t\r\n")
 
