@@ -191,9 +191,14 @@ func applyrules(rs *ruleSet, g *graph, target string, rulecnt []int) *node {
 
 			var stem string
 			var matches []string
+			var match_vars = make(map[string][]string)
 
 			if r.attributes.regex {
 				matches = mat
+				for i := range matches {
+					key := fmt.Sprintf("stem%d", i)
+					match_vars[key] = matches[i : i+1]
+				}
 			} else {
 				stem = mat[1]
 			}
@@ -207,8 +212,7 @@ func applyrules(rs *ruleSet, g *graph, target string, rulecnt []int) *node {
 				for i := range r.prereqs {
 					var prereq string
 					if r.attributes.regex {
-						// TODO: write substituteRegexpRefs and use that here
-						prereq = r.prereqs[i]
+						prereq = expandRecipeSigils(r.prereqs[i], match_vars)
 					} else {
 						prereq = expandSuffixes(r.prereqs[i], stem)
 					}

@@ -258,8 +258,6 @@ func expandSuffixes(input string, stem string) string {
 	return string(expanded)
 }
 
-// TODO: expand RegexpRefs
-
 // Expand a backtick quoted string, by executing the contents.
 func expandBackQuoted(input string, vars map[string][]string) ([]string, int) {
 	// TODO: expand sigils?
