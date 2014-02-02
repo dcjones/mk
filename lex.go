@@ -283,10 +283,6 @@ func lexTopLevel(l *lexer) lexerStateFun {
 		return lexBackQuotedWord
 	}
 
-	if strings.IndexRune(nonBareRunes, c) >= 0 {
-		l.lexerror(fmt.Sprintf("expected a unquoted string, but found '%c'", c))
-	}
-
 	return lexBareWord
 }
 
@@ -366,12 +362,27 @@ func lexRecipe(l *lexer) lexerStateFun {
 
 func lexBareWord(l *lexer) lexerStateFun {
 	l.acceptUntil(nonBareRunes)
-	if l.peek() == '"' {
+	c := l.peek()
+	if c == '"' {
 		return lexDoubleQuotedWord
-	} else if l.peek() == '\'' {
+	} else if c == '\'' {
 		return lexSingleQuotedWord
-	} else if l.peek() == '`' {
+	} else if c == '`' {
 		return lexBackQuotedWord
+	} else if c == '\\' {
+		c1 := l.peekN(1)
+		if c1 == '\n' || c1 == '\r' {
+			if l.start < l.pos {
+				l.emit(tokenWord)
+			}
+			l.skip()
+			l.skip()
+			return lexTopLevel
+		} else {
+			l.next()
+			l.next()
+			return lexBareWord
+		}
 	}
 
 	if l.start < l.pos {

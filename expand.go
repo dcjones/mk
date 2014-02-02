@@ -78,7 +78,11 @@ func expand(input string, vars map[string][]string, expandBackticks bool) []stri
 // Expand following a '\\'
 func expandEscape(input string) (string, int) {
 	c, w := utf8.DecodeRuneInString(input)
-	return string(c), w
+	if c == '\t' || c == ' ' {
+		return string(c), w
+	} else {
+		return "\\" + string(c), w
+	}
 }
 
 // Expand a double quoted string starting after a '\"'
