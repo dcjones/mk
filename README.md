@@ -58,6 +58,8 @@ improvements.
      `-p=1` if this is the case.
   1. Use Go regular expressions, which are perl-like. The original mk used plan9
      regex, which few people know or care to learn.
+  1. Regex matches are substituted into rule prerequisites with `$stem1`,
+     `$stem2`, etc, rather than `\1`, `\2`, etc.
   1. Allow blank lines in recipes. A recipe is any indented block of text, and
      continues until a non-indented character or the end of the file. (Similar
      to blocks in Python.)

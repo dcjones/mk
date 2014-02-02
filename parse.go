@@ -308,7 +308,7 @@ func parseRecipe(p *parser, t token) parserStateFun {
 			r.targets = append(r.targets, pattern{spat: targetstr})
 
 			if r.attributes.regex {
-				rpat, err := regexp.Compile(targetstr)
+				rpat, err := regexp.Compile("^" + targetstr + "$")
 				if err != nil {
 					msg := fmt.Sprintf("invalid regular expression: %q", err)
 					p.basicErrorAtToken(msg, p.tokenbuf[k])
