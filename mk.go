@@ -16,6 +16,9 @@ var nocolor bool = false
 // True if we are ignoring timestamps and rebuilding everything.
 var rebuildall bool = false
 
+// Set of targets for which we are forcing rebuild
+var rebuildtargets map[string]bool = make(map[string]bool)
+
 // Lock on standard out, messages don't get interleaved too much.
 var mkMsgMutex sync.Mutex
 
@@ -203,7 +206,8 @@ func mkNode(g *graph, u *node, dryrun bool, required bool) {
 		uptodate = false
 	}
 
-	if rebuildall {
+	_, isrebuildtarget := rebuildtargets[u.name]
+	if isrebuildtarget || rebuildall {
 		uptodate = false
 	}
 
@@ -291,9 +295,11 @@ func main() {
 	var mkfilepath string
 	var interactive bool
 	var dryrun bool
+	var shallowrebuild bool
 
 	flag.StringVar(&mkfilepath, "f", "mkfile", "use the given file as mkfile")
 	flag.BoolVar(&dryrun, "n", false, "print commands without actually executing")
+	flag.BoolVar(&shallowrebuild, "r", false, "force building of just targets")
 	flag.BoolVar(&rebuildall, "a", false, "force building of all dependencies")
 	flag.IntVar(&subprocsAllowed, "p", 8, "maximum number of jobs to execute in parallel")
 	flag.BoolVar(&interactive, "i", false, "prompt before executing rules")
@@ -326,7 +332,13 @@ func main() {
 		return
 	}
 
-	// Create a dummy virtula rule that depends on every target
+	if shallowrebuild {
+		for i := range targets {
+			rebuildtargets[targets[i]] = true
+		}
+	}
+
+	// Create a dummy virtual rule that depends on every target
 	root := rule{}
 	root.targets = []pattern{pattern{false, "", nil}}
 	root.attributes = attribSet{false, false, false, false, false, false, false, true, false}
