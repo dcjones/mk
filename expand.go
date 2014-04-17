@@ -59,11 +59,16 @@ func expand(input string, vars map[string][]string, expandBackticks bool) []stri
 			var outparts []string
 			outparts, off = expandSigil(input[i:], vars)
 			if len(outparts) > 0 {
-				parts = append(parts, expanded+outparts[0])
+				firstpart := expanded + outparts[0]
 				if len(outparts) > 1 {
-					parts = append(parts, outparts[1:len(outparts)-1]...)
+					parts = append(parts, firstpart)
+					if len(outparts) > 2 {
+						parts = append(parts, outparts[1:len(outparts)-1]...)
+					}
+					expanded = outparts[len(outparts)-1]
+				} else {
+					expanded = firstpart
 				}
-				expanded = parts[len(parts)-1]
 			}
 		}
 
