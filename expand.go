@@ -63,6 +63,7 @@ func expand(input string, vars map[string][]string, expandBackticks bool) []stri
 				if len(outparts) > 1 {
 					parts = append(parts, outparts[1:len(outparts)-1]...)
 				}
+				expanded = parts[len(parts)-1]
 			}
 		}
 
