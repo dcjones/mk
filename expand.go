@@ -87,9 +87,8 @@ func expandEscape(input string) (string, int) {
 	c, w := utf8.DecodeRuneInString(input)
 	if c == '\t' || c == ' ' {
 		return string(c), w
-	} else {
-		return "\\" + string(c), w
 	}
+	return "\\" + string(c), w
 }
 
 // Expand a double quoted string starting after a '\"'
