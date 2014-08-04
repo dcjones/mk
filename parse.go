@@ -232,7 +232,7 @@ func parseTargets(p *parser, t token) parserStateFun {
 	return parseTargets
 }
 
-// Consumed one or more strings followed by a first ':'.
+// Consume one or more strings followed by a first ':'.
 func parseAttributesOrPrereqs(p *parser, t token) parserStateFun {
 	switch t.typ {
 	case tokenNewline:

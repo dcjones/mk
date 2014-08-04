@@ -136,7 +136,11 @@ func expandSigil(input string, vars map[string][]string) ([]string, int) {
 	c, w := utf8.DecodeRuneInString(input)
 	var offset int
 	var varname string
-	if c == '{' {
+
+	// escaping of "$" with "$$"
+	if c == '$' {
+		return []string{"$"}, 2
+	} else if c == '{' {
 		j := strings.IndexRune(input[w:], '}')
 		if j < 0 {
 			return []string{"$" + input}, len(input)
