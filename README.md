@@ -10,7 +10,8 @@ is for anyone who loves make, but hates all its stupid bullshit.
 # Installation
 
  1. Install Go.
- 2. Run `go install github.com/dcjones/mk`
+ 2. Run `go get github.com/dcjones/mk`
+ 3. Make sure `$GOPATH/bin` is in your `PATH`.
 
 # Why Plan 9 mk is better than make
 
