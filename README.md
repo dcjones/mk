@@ -1,5 +1,5 @@
 
-# Mk
+!["Logo"](http://dcjones.github.com/mk/mk.svg)
 
 Mk is a reboot of the Plan 9 mk command, which itself is [a successor to
 make](http://www.cs.tufts.edu/~nr/cs257/archive/andrew-hume/mk.pdf). This tool
@@ -67,6 +67,35 @@ improvements.
      way, you don't have to separate your six line python script into its own
      file. Just stick it directly in the mkfile.
   1. Pretty colors.
+
+
+# Usage
+
+`mk [options] [target] ...`
+
+## Options
+
+  * `-f filename` Use the given file as the mkfile.
+  * `-n` Dry run, print commands without actually executing.
+  * `-r` Force building of the immediate targets.
+  * `-a` Force building the targets and of all their dependencies.
+  * `-p` Maximum number of jobs to execute in parallel (default: 8)
+  * `-i` Show rules that will execute and prompt before executing.
+
+
+# Non-shell recipes
+
+Non-shell recipes are a major addition over Plan 9 mk. They can be used with the
+`S[command]` attribute, where `command` is an arbitrary command that the recipe
+will be piped into. For example, here's a recipe to add the read numbers from a
+file and write their mean to another file. Unlike a typical recipe, it's written
+in Julia.
+
+```make
+mean.txt:Sjulia: input.txt
+    println(open("$target", "w"),
+            mean(map(parseint, eachline(open("$prereq")))))
+```
 
 # Current State
 
