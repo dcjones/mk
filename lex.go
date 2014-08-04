@@ -11,7 +11,7 @@ type tokenType int
 const eof rune = '\000'
 
 // Rune's that cannot be part of a bare (unquoted) string.
-const nonBareRunes = " \t\n\r\\=:#'\""
+const nonBareRunes = " \t\n\r\\=:#'\"$"
 
 // Return true if the string contains whitespace only.
 func onlyWhitespace(s string) bool {
@@ -383,6 +383,14 @@ func lexBareWord(l *lexer) lexerStateFun {
 			l.next()
 			return lexBareWord
 		}
+	} else if c == '$' {
+		c1 := l.peekN(1)
+		if c1 == '{' {
+			return lexBracketExpansion
+		} else {
+			l.next()
+			return lexBareWord
+		}
 	}
 
 	if l.start < l.pos {
@@ -390,4 +398,12 @@ func lexBareWord(l *lexer) lexerStateFun {
 	}
 
 	return lexTopLevel
+}
+
+func lexBracketExpansion(l *lexer) lexerStateFun {
+	l.next() // '$'
+	l.next() // '{'
+	l.acceptUntil("}")
+	l.next() // '}'
+	return lexBareWord
 }
