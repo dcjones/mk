@@ -248,7 +248,7 @@ func mkPrintError(msg string) {
 	if !nocolor {
 		os.Stderr.WriteString(ansiTermRed)
 	}
-	fmt.Fprintf(os.Stderr, "%s", msg)
+	fmt.Fprintf(os.Stderr, "%s\n", msg)
 	if !nocolor {
 		os.Stderr.WriteString(ansiTermDefault)
 	}
