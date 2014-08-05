@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -14,6 +15,7 @@ import (
 type parser struct {
 	l        *lexer   // underlying lexer
 	name     string   // name of the file being parsed
+	path     string   // full path of the file being parsed
 	tokenbuf []token  // tokens consumed on the current statement
 	rules    *ruleSet // current ruleSet
 }
@@ -50,18 +52,19 @@ func (p *parser) clear() {
 type parserStateFun func(*parser, token) parserStateFun
 
 // Parse a mkfile, returning a new ruleSet.
-func parse(input string, name string) *ruleSet {
+func parse(input string, name string, path string) *ruleSet {
 	rules := &ruleSet{make(map[string][]string),
 		make([]rule, 0),
 		make(map[string][]int)}
-	parseInto(input, name, rules)
+	parseInto(input, name, rules, path)
 	return rules
 }
 
 // Parse a mkfile inserting rules and variables into a given ruleSet.
-func parseInto(input string, name string, rules *ruleSet) {
+func parseInto(input string, name string, rules *ruleSet, path string) {
 	l, tokens := lex(input)
-	p := &parser{l, name, []token{}, rules}
+	p := &parser{l, name, path, []token{}, rules}
+	p.rules.vars["mkfiledir"] = []string{filepath.Dir(path)}
 	state := parseTopLevel
 	for t := range tokens {
 		if t.typ == tokenError {
@@ -117,7 +120,7 @@ func parsePipeInclude(p *parser, t token) parserStateFun {
 			p.basicErrorAtToken("subprocess include failed", t)
 		}
 
-		parseInto(output, fmt.Sprintf("%s:sh", p.name), p.rules)
+		parseInto(output, fmt.Sprintf("%s:sh", p.name), p.rules, p.path)
 
 		p.clear()
 		return parseTopLevel
@@ -154,7 +157,13 @@ func parseRedirInclude(p *parser, t token) parserStateFun {
 			p.basicErrorAtToken(fmt.Sprintf("cannot open %s", filename), p.tokenbuf[0])
 		}
 		input, _ := ioutil.ReadAll(file)
-		parseInto(string(input), filename, p.rules)
+
+		path, err := filepath.Abs(filename)
+		if err != nil {
+			mkError("unable to find mkfile's absolute path")
+		}
+
+		parseInto(string(input), filename, p.rules, path)
 
 		p.clear()
 		return parseTopLevel

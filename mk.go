@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -312,7 +313,12 @@ func main() {
 	input, _ := ioutil.ReadAll(mkfile)
 	mkfile.Close()
 
-	rs := parse(string(input), mkfilepath)
+	abspath, err := filepath.Abs(mkfilepath)
+	if err != nil {
+		mkError("unable to find mkfile's absolute path")
+	}
+
+	rs := parse(string(input), mkfilepath, abspath)
 	targets := flag.Args()
 
 	// build the first non-meta rule in the makefile, if none are given explicitly
