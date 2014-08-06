@@ -64,6 +64,7 @@ func parse(input string, name string, path string) *ruleSet {
 func parseInto(input string, name string, rules *ruleSet, path string) {
 	l, tokens := lex(input)
 	p := &parser{l, name, path, []token{}, rules}
+	oldmkfiledir := p.rules.vars["mkfiledir"]
 	p.rules.vars["mkfiledir"] = []string{filepath.Dir(path)}
 	state := parseTopLevel
 	for t := range tokens {
@@ -78,6 +79,8 @@ func parseInto(input string, name string, rules *ruleSet, path string) {
 	// insert a dummy newline to allow parsing of any assignments or recipeless
 	// rules to finish.
 	state = state(p, token{tokenNewline, "\n", l.line, l.col})
+
+	p.rules.vars["mkfiledir"] = oldmkfiledir
 
 	// TODO: Error when state != parseTopLevel
 }
