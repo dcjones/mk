@@ -97,9 +97,7 @@ func dorecipe(target string, u *node, e *edge, dryrun bool) bool {
 		args = e.r.shell[1:]
 	}
 
-	if !e.r.attributes.quiet {
-		mkPrintRecipe(target, input)
-	}
+	mkPrintRecipe(target, input, e.r.attributes.quiet)
 
 	if dryrun {
 		return true

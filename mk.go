@@ -273,7 +273,7 @@ func mkPrintMessage(msg string) {
 	mkMsgMutex.Unlock()
 }
 
-func mkPrintRecipe(target string, recipe string) {
+func mkPrintRecipe(target string, recipe string, quiet bool) {
 	mkMsgMutex.Lock()
 	if nocolor {
 		fmt.Printf("%s: ", target)
@@ -282,9 +282,17 @@ func mkPrintRecipe(target string, recipe string) {
 			ansiTermBlue+ansiTermBright+ansiTermUnderline, target,
 			ansiTermDefault, ansiTermBlue)
 	}
-	printIndented(os.Stdout, recipe, len(target)+3)
-	if len(recipe) == 0 {
-		os.Stdout.WriteString("\n")
+	if quiet {
+		if nocolor {
+			fmt.Println("...")
+		} else {
+			fmt.Println("…")
+		}
+	} else {
+		printIndented(os.Stdout, recipe, len(target)+3)
+		if len(recipe) == 0 {
+			os.Stdout.WriteString("\n")
+		}
 	}
 	if !nocolor {
 		os.Stdout.WriteString(ansiTermDefault)
@@ -297,6 +305,7 @@ func main() {
 	var interactive bool
 	var dryrun bool
 	var shallowrebuild bool
+	var quiet bool
 
 	flag.StringVar(&mkfilepath, "f", "mkfile", "use the given file as mkfile")
 	flag.BoolVar(&dryrun, "n", false, "print commands without actually executing")
@@ -304,6 +313,7 @@ func main() {
 	flag.BoolVar(&rebuildall, "a", false, "force building of all dependencies")
 	flag.IntVar(&subprocsAllowed, "p", 4, "maximum number of jobs to execute in parallel")
 	flag.BoolVar(&interactive, "i", false, "prompt before executing rules")
+	flag.BoolVar(&quiet, "q", false, "don't print recipes before executing them")
 	flag.Parse()
 
 	mkfile, err := os.Open(mkfilepath)
@@ -319,6 +329,12 @@ func main() {
 	}
 
 	rs := parse(string(input), mkfilepath, abspath)
+	if quiet {
+		for i := range rs.rules {
+			rs.rules[i].attributes.quiet = true
+		}
+	}
+
 	targets := flag.Args()
 
 	// build the first non-meta rule in the makefile, if none are given explicitly
