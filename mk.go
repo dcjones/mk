@@ -1,19 +1,21 @@
 package main
 
 import (
-	"bufio"
+    "bufio"
     "runtime"
-	"flag"
-	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strings"
-	"sync"
+    "flag"
+    "fmt"
+    "io/ioutil"
+    "os"
+    "path/filepath"
+    "strings"
+    "sync"
+    "github.com/mattn/go-isatty"
 )
 
 // True if messages should be printed without fancy colors.
-var nocolor bool = false
+//  - By default, if the output stream is not the terminal, colors are disabled
+var nocolor bool = !isatty.IsTerminal(os.Stdout.Fd())
 
 // True if we are ignoring timestamps and rebuilding everything.
 var rebuildall bool = false
