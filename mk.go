@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+    "runtime"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -311,7 +312,7 @@ func main() {
 	flag.BoolVar(&dryrun, "n", false, "print commands without actually executing")
 	flag.BoolVar(&shallowrebuild, "r", false, "force building of just targets")
 	flag.BoolVar(&rebuildall, "a", false, "force building of all dependencies")
-	flag.IntVar(&subprocsAllowed, "p", 4, "maximum number of jobs to execute in parallel")
+	flag.IntVar(&subprocsAllowed, "p", runtime.NumCPU(), "maximum number of jobs to execute in parallel")
 	flag.BoolVar(&interactive, "i", false, "prompt before executing rules")
 	flag.BoolVar(&quiet, "q", false, "don't print recipes before executing them")
 	flag.Parse()
