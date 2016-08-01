@@ -13,6 +13,11 @@ is for anyone who loves make, but hates all its stupid bullshit.
  2. Run `go get github.com/dcjones/mk`
  3. Make sure `$GOPATH/bin` is in your `PATH`.
 
+### Building/installing from source
+
+ 1. `git clone` the repo
+ 2. `go build`
+
 ## Why Plan 9 mk is better than make
 
 Way back in the 90s, some smart guys at Bell Labs got together and decided to
@@ -105,6 +110,12 @@ mean.txt:Sjulia: input.txt
 
 Functional, but with some bugs and some unimplemented minor features. Give it a
 try and see what you think!
+
+## Building and installing from source
+
+ * clone the repo
+ * `go build` - build the executable
+ * `go test` - run the tests
 
 ## License
 
