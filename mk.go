@@ -24,7 +24,9 @@ var rebuildtargets map[string]bool = make(map[string]bool)
 var mkMsgMutex sync.Mutex
 
 // The maximum number of times an rule may be applied.
-const maxRuleCnt = 1
+// This limits recursion of both meta- and non-meta-rules!
+// Maybe, this shouldn't affect meta-rules?!
+var maxRuleCnt int = 1
 
 // Limit the number of recipes executed simultaneously.
 var subprocsAllowed int
@@ -312,6 +314,7 @@ func main() {
 	flag.BoolVar(&shallowrebuild, "r", false, "force building of just targets")
 	flag.BoolVar(&rebuildall, "a", false, "force building of all dependencies")
 	flag.IntVar(&subprocsAllowed, "p", 4, "maximum number of jobs to execute in parallel")
+	flag.IntVar(&maxRuleCnt, "l", 1, "maximum number of times a specific rule can be applied (recursion)")
 	flag.BoolVar(&interactive, "i", false, "prompt before executing rules")
 	flag.BoolVar(&quiet, "q", false, "don't print recipes before executing them")
 	flag.Parse()
