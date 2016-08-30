@@ -106,6 +106,7 @@ func dorecipe(target string, u *node, e *edge, dryrun bool) bool {
 	_, success := subprocess(
 		sh,
 		args,
+		nil,
 		input,
 		false)
 
@@ -127,6 +128,7 @@ func dorecipe(target string, u *node, e *edge, dryrun bool) bool {
 //
 func subprocess(program string,
 	args []string,
+	env []string,
 	input string,
 	capture_out bool) (string, bool) {
 	program_path, err := exec.LookPath(program)
@@ -142,7 +144,7 @@ func subprocess(program string,
 		log.Fatal(err)
 	}
 
-	attr := os.ProcAttr{Files: []*os.File{stdin_pipe_read, os.Stdout, os.Stderr}}
+	attr := os.ProcAttr{Env: env, Files: []*os.File{stdin_pipe_read, os.Stdout, os.Stderr}}
 
 	output := make([]byte, 0)
 	capture_done := make(chan bool)

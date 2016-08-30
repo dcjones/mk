@@ -5,6 +5,7 @@ package main
 import (
 	"regexp"
 	"strings"
+	"os"
 	"unicode/utf8"
 )
 
@@ -89,31 +90,35 @@ func expandEscape(input string) (string, int) {
 	if c == '\t' || c == ' ' {
 		return string(c), w
 	}
+	if c == '\n' {
+		return "", w
+	}
 	return "\\" + string(c), w
 }
 
 // Expand a double quoted string starting after a '\"'
 func expandDoubleQuoted(input string, vars map[string][]string, expandBackticks bool) (string, int) {
 	// find the first non-escaped "
+	i := 0
 	j := 0
 	for {
-		j = strings.IndexAny(input[j:], "\"\\")
+		j = strings.IndexAny(input[i:], "\"\\")
 		if j < 0 {
 			break
 		}
+		j += i
 
 		c, w := utf8.DecodeRuneInString(input[j:])
-		j += w
+		i = j + w
 
 		if c == '"' {
-			return strings.Join(expand(input[:j], vars, expandBackticks), " "), (j + w)
+			return strings.Join(expand(input[:j], vars, expandBackticks), " "), i
 		}
 
 		if c == '\\' {
-			if j+w < len(input) {
-				j += w
-				_, w := utf8.DecodeRuneInString(input[j:])
-				j += w
+			if i < len(input) {
+				_, w := utf8.DecodeRuneInString(input[i:])
+				i += w
 			} else {
 				break
 			}
@@ -303,9 +308,14 @@ func expandBackQuoted(input string, vars map[string][]string) ([]string, int) {
 	if j < 0 {
 		return []string{input}, len(input)
 	}
+	
+	env := os.Environ()
+	for key, values := range vars {
+		env = append(env, key + "=" + strings.Join(values, " "))
+	}
 
 	// TODO: handle errors
-	output, _ := subprocess("sh", nil, input[:j], true)
+	output, _ := subprocess("sh", nil, env, input[:j], true)
 
 	parts := make([]string, 0)
 	_, tokens := lexWords(output)

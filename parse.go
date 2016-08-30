@@ -118,7 +118,7 @@ func parsePipeInclude(p *parser, t token) parserStateFun {
 			args[i] = p.tokenbuf[i].val
 		}
 
-		output, success := subprocess("sh", args, "", true)
+		output, success := subprocess("sh", args, nil, "", true)
 		if !success {
 			p.basicErrorAtToken("subprocess include failed", t)
 		}
