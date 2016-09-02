@@ -16,7 +16,8 @@ is for anyone who loves make, but hates all its stupid bullshit.
 ### Building/installing from source
 
  1. `git clone` the repo
- 2. `go build`
+ 2. `go get`
+ 3. `go build`
 
 ## Why Plan 9 mk is better than make
 
