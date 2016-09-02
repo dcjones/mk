@@ -1,18 +1,21 @@
 package main
 
 import (
-	"bufio"
-	"flag"
-	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strings"
-	"sync"
+    "bufio"
+    "runtime"
+    "flag"
+    "fmt"
+    "io/ioutil"
+    "os"
+    "path/filepath"
+    "strings"
+    "sync"
+    "github.com/mattn/go-isatty"
 )
 
 // True if messages should be printed without fancy colors.
-var nocolor bool = false
+//  - By default, if the output stream is not the terminal, colors are disabled
+var nocolor bool = !isatty.IsTerminal(os.Stdout.Fd())
 
 // True if we are ignoring timestamps and rebuilding everything.
 var rebuildall bool = false
@@ -311,7 +314,7 @@ func main() {
 	flag.BoolVar(&dryrun, "n", false, "print commands without actually executing")
 	flag.BoolVar(&shallowrebuild, "r", false, "force building of just targets")
 	flag.BoolVar(&rebuildall, "a", false, "force building of all dependencies")
-	flag.IntVar(&subprocsAllowed, "p", 4, "maximum number of jobs to execute in parallel")
+	flag.IntVar(&subprocsAllowed, "p", runtime.NumCPU(), "maximum number of jobs to execute in parallel")
 	flag.BoolVar(&interactive, "i", false, "prompt before executing rules")
 	flag.BoolVar(&quiet, "q", false, "don't print recipes before executing them")
 	flag.Parse()

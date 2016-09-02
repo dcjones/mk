@@ -1,0 +1,46 @@
+# Project related
+mk
+
+# Go related
+
+# Java related
+pom.xml
+*.class
+
+# Python
+*.pyc
+*.pyo
+/__pycache__/
+
+# Ruby
+#Gemfile.lock
+.sass-cache/
+
+# Temp Files
+*.orig
+*~
+.*.swp
+.*.swo
+*.tmp
+*.bak
+
+# Editors (IntelliJ / Eclipse)
+*/.idea
+.idea
+*/.classpath
+.classpath
+*/.project
+.project
+*/.settings
+.settings
+
+# OS X
+.DS_Store
+
+# Logging
+*.log
+/logs/
+
+# Builds
+*.o
+out/
