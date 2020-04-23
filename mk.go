@@ -328,7 +328,13 @@ func main() {
 		mkError("unable to find mkfile's absolute path")
 	}
 
-	rs := parse(string(input), mkfilepath, abspath)
+	env := make(map[string][]string)
+	for _, elem := range os.Environ() {
+		vals := strings.SplitN(elem, "=", 2)
+		env[vals[0]] = append(env[vals[0]], vals[1])
+	}
+
+	rs := parse(string(input), mkfilepath, abspath, env)
 	if quiet {
 		for i := range rs.rules {
 			rs.rules[i].attributes.quiet = true
